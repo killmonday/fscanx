@@ -119,6 +119,6 @@ func read(text []byte, host string) error {
 		}
 		result += "\n   [->]" + string(host)
 	}
-	common.LogSuccess(result)
+	common.LogSuccess(result + "\n")
 	return nil
 }

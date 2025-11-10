@@ -17,11 +17,56 @@ type Brutelist struct {
 }
 
 func RdpScan(info *common.HostInfo) (tmperr error) {
+	//通过NLA获取系统信息
+	host := info.Host + ":" + info.Ports
+	g := login.NewClient(host, login.LogLever)
+	osInfo := g.ProbeOSInfo(host, common.Domain, "", "", common.TcpTimeout, x224.PROTOCOL_HYBRID)
+	if osInfo != nil {
+		//for k, v := range osInfo {
+		//	fmt.Printf("get %s : %s\n", k, v)
+		//}
+		var netBiosDomainName, netBiosComputerName, FQDN, DNSDomainName, ProductVersion, OsVerion string
+		if value, exists := osInfo["NetBIOSDomainName"]; exists {
+			if field_value, ok := value.(string); ok {
+				netBiosDomainName = field_value
+			}
+		}
+		if value, exists := osInfo["NetBIOSComputerName"]; exists {
+			if field_value, ok := value.(string); ok {
+				netBiosComputerName = field_value
+			}
+		}
+		if value, exists := osInfo["FQDN"]; exists {
+			if field_value, ok := value.(string); ok {
+				FQDN = field_value
+			}
+		}
+		if value, exists := osInfo["DNSDomainName"]; exists {
+			if field_value, ok := value.(string); ok {
+				DNSDomainName = field_value
+			}
+		}
+		if value, exists := osInfo["ProductVersion"]; exists {
+			if field_value, ok := value.(string); ok {
+				ProductVersion = field_value
+			}
+		}
+		if value, exists := osInfo["OsVerion"]; exists {
+			if field_value, ok := value.(string); ok {
+				OsVerion = field_value
+			}
+		}
+		if OsVerion == "" && netBiosComputerName == "" && FQDN == "" && netBiosDomainName == "" && DNSDomainName == "" {
+			return
+		}
+		osInfoStr := fmt.Sprintf("[+] get os info by rdpscan: %s, Build:Windows %s, OS:(%s), Hostname:%s, DNSDomainName:%s, FQDN:%s, NetBIOSDomainName:%s, DnsdDomainName:%s", host, ProductVersion, OsVerion, netBiosComputerName, netBiosComputerName, FQDN, netBiosDomainName, DNSDomainName)
+		common.LogSuccess(osInfoStr)
+	}
+
 	if common.IsScreenShot {
 		//rdp截屏
 		login.Socks5Proxy = common.Socks5Proxy // socks5://127.0.0.1:10808
 		login.LogLever = glog.NONE             // TRACE DEBUG INFO WARN ERROR NONE
-		host := info.Host + ":" + info.Ports
 		status, rdpErr := login.RdpConn(host, common.Domain, "", "", common.TcpTimeout, x224.PROTOCOL_SSL)
 		if status == true {
 			//fmt.Printf("[+] RDP %v, domain:%v, user:%v pass:%v\n", host, common.Domain, "", "")
@@ -35,59 +80,15 @@ func RdpScan(info *common.HostInfo) (tmperr error) {
 			//	fmt.Println(info.Host, "端口未开放")
 			//}
 		}
-
-		//通过NLA获取系统信息
-		g := login.NewClient(host, login.LogLever)
-		osInfo := g.ProbeOSInfo(host, common.Domain, "", "", common.TcpTimeout, x224.PROTOCOL_HYBRID)
-		if osInfo != nil {
-			//for k, v := range osInfo {
-			//	fmt.Printf("get %s : %s\n", k, v)
-			//}
-
-			var netBiosDomainName, netBiosComputerName, FQDN, DNSDomainName, ProductVersion, OsVerion string
-			if value, exists := osInfo["NetBIOSDomainName"]; exists {
-				if field_value, ok := value.(string); ok {
-					netBiosDomainName = field_value
-				}
-			}
-			if value, exists := osInfo["NetBIOSComputerName"]; exists {
-				if field_value, ok := value.(string); ok {
-					netBiosComputerName = field_value
-				}
-			}
-			if value, exists := osInfo["FQDN"]; exists {
-				if field_value, ok := value.(string); ok {
-					FQDN = field_value
-				}
-			}
-			if value, exists := osInfo["DNSDomainName"]; exists {
-				if field_value, ok := value.(string); ok {
-					DNSDomainName = field_value
-				}
-			}
-			if value, exists := osInfo["ProductVersion"]; exists {
-				if field_value, ok := value.(string); ok {
-					ProductVersion = field_value
-				}
-			}
-			if value, exists := osInfo["OsVerion"]; exists {
-				if field_value, ok := value.(string); ok {
-					OsVerion = field_value
-				}
-			}
-			if OsVerion == "" && netBiosComputerName == "" && netBiosComputerName == "" && FQDN == "" && netBiosDomainName == "" &&  DNSDomainName == ""{
-				return
-			} 
-			osInfoStr := fmt.Sprintf("[+] get os info by rdpscan: %s, Build:Windows %s, OS:(%s), Hostname:%s, DNSDomainName:%s, FQDN:%s, NetBIOSDomainName:%s, DnsdDomainName:%s", host, ProductVersion, OsVerion, netBiosComputerName, netBiosComputerName, FQDN, netBiosDomainName, DNSDomainName)
-			common.LogSuccess(osInfoStr)
-		}
-
 	}
 
-	if common.NoBrute {
+	if common.DoBrute == false {
 		return
 	}
-
+	common.BruteTaskRateCtrlCh <- struct{}{}
+	defer func() {
+		<-common.BruteTaskRateCtrlCh
+	}()
 	var wg sync.WaitGroup
 	var signal bool
 	var num = 0

@@ -23,7 +23,7 @@ func RedisScan(info *common.HostInfo) (tmperr error) {
 	if flag == true && err == nil {
 		return err
 	}
-	if common.NoBrute {
+	if common.DoBrute == false {
 		return
 	}
 	for _, pass := range common.Passwords {

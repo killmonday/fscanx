@@ -27,9 +27,27 @@ var PluginList = map[string]interface{}{
 	"27017":   MongodbScan,
 	"1000001": MS17010,
 	"1000002": SmbGhost,
-	"1000003": WebTitle,
+	"1000003": WebScanController,
 	"1000004": SmbScan2,
 	"1000005": WmiExec,
+}
+
+var PluginListByProto = map[string]interface{}{
+	"ftp":        FtpScan,
+	"ssh":        SshScan,
+	"rpc":        Findnet,
+	"netbios":    NetBIOS,
+	"smb":        SmbScan,
+	"mssql":      MssqlScan,
+	"oracle":     OracleScan,
+	"mysql":      MysqlScan,
+	"rdp":        RdpScan,
+	"postgresql": PostgresScan,
+	"redis":      RedisScan,
+	"memcache":   MemcachedScan,
+	"mongodb":    MongodbScan,
+	"http":       WebScanController,
+	"https":      WebScanController,
 }
 
 func ReadBytes(conn net.Conn) (result []byte, err error) {

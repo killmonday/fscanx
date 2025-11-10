@@ -19,6 +19,7 @@ func Parse(Info *HostInfo) {
 	ParsePass(Info)
 	ParseInput(Info)
 	ParseScantype(Info)
+	Info.Ports = PortsInput
 }
 
 func ParseUser() {
@@ -104,9 +105,10 @@ func ParsePass(Info *HostInfo) {
 					newport += port + ","
 				}
 			}
-			Ports = newport
+			PortsInput = newport
 		}
 	}
+
 }
 
 func Readfile(filename string) ([]string, error) {
@@ -130,7 +132,7 @@ func Readfile(filename string) ([]string, error) {
 
 func ParseInput(Info *HostInfo) {
 	if Info.Host == "" && HostFile == "" && URL == "" && UrlFile == "" {
-		if StdInput == false {
+		if ScanWithStdInput == false {
 			fmt.Println("Host is none")
 			flag.Usage()
 			os.Exit(0)
@@ -145,30 +147,11 @@ func ParseInput(Info *HostInfo) {
 		IsSave = false
 	}
 
-	if Ports == DefaultPorts {
-		// Ports += "," + Webport
-		//对端口去重
-		slice_ports := strings.Split(Ports, ",")
-		var port_dic map[string]bool = make(map[string]bool)
-		for _, port := range slice_ports {
-			port_dic[port] = true
-		}
-		var unique_port_str string = ""
-		for port := range port_dic {
-			unique_port_str += port
-			unique_port_str += ","
-		}
-		if unique_port_str[len(unique_port_str)-1] == ',' {
-			unique_port_str = unique_port_str[:len(unique_port_str)-2]
-		}
-		Ports = unique_port_str
-	}
-
 	if PortAdd != "" {
-		if strings.HasSuffix(Ports, ",") {
-			Ports += PortAdd
+		if strings.HasSuffix(PortsInput, ",") {
+			PortsInput += PortAdd
 		} else {
-			Ports += "," + PortAdd
+			PortsInput += "," + PortAdd
 		}
 	}
 
@@ -240,7 +223,7 @@ func ParseInput(Info *HostInfo) {
 	Hashs = []string{}
 
 	//own add
-	MaxRate = MaxRate * PingRate
+	MaxRate = MaxRate * PingRate //根据用户设置的PingRate(例如0.1)，计算出本次icmp任务最大发包为多少MB/s
 	// 计算发送一个 ICMP 数据包所需的时间
 	PacketsPerSecond = MaxRate / float64(PacketSize)
 	Bucket_limit = int64(PacketsPerSecond)
@@ -250,38 +233,40 @@ func ParseInput(Info *HostInfo) {
 }
 
 func ParseScantype(Info *HostInfo) {
-	_, ok := PORTList[Scantype]
+	_, ok := PluginPortMap[Scantype]
 	if !ok {
 		showmode()
 	}
-	if Scantype != "all" && Ports == DefaultPorts+","+Webport {
+	//根据用户设置的扫描类型，改变探测的端口列表
+	if Scantype != "all" {
 		switch Scantype {
 		case "wmiexec":
-			Ports = "135"
+			PortsInput = "135"
 		case "wmiinfo":
-			Ports = "135"
+			PortsInput = "135"
 		case "smbinfo":
-			Ports = "445"
+			PortsInput = "445"
 		case "hostname":
-			Ports = "135,137,139,445"
+			PortsInput = "135,137,139,445"
 		case "smb2":
-			Ports = "445"
+			PortsInput = "445"
 		case "web":
-			Ports = Webport
+			PortsInput = Webport
 		case "webonly":
-			Ports = Webport
+			PortsInput = Webport
 		case "ms17010":
-			Ports = "445"
+			PortsInput = "445"
 		case "cve20200796":
-			Ports = "445"
+			PortsInput = "445"
 		case "portscan":
-			// Ports = DefaultPorts + "," + Webport
-			Ports = DefaultPorts
+			PortsInput = DefaultPorts + "," + Webport
 		case "main":
-			Ports = DefaultPorts
+			PortsInput = DefaultPorts
 		default:
-			port, _ := PORTList[Scantype]
-			Ports = strconv.Itoa(port)
+			port, ok := PluginPortMap[Scantype]
+			if ok {
+				PortsInput = strconv.Itoa(port)
+			}
 		}
 	}
 
@@ -302,7 +287,7 @@ func CheckErr(text string, err error, flag bool) {
 func showmode() {
 	fmt.Println("The specified scan type does not exist")
 	fmt.Println("-m")
-	for name := range PORTList {
+	for name := range PluginPortMap {
 		fmt.Println("   [" + name + "]")
 	}
 	os.Exit(0)

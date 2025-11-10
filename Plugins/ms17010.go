@@ -52,7 +52,7 @@ func LittleEndUtf16ToUtf8Str(input []byte) (utf8Str string) {
 }
 
 func MS17010(info *common.HostInfo) error {
-	// if common.NoBrute {
+	// if common.DoBrute {
 	// 	return nil
 	// }
 	err := MS17010Scan(info)
@@ -105,7 +105,7 @@ func MS17010Scan(info *common.HostInfo) error {
 
 	if binary.LittleEndian.Uint32(reply[9:13]) != 0 {
 		// status != 0
-		fmt.Printf("can't determine whether %s is vulnerable or not\n", ip)
+		common.LogSuccess("[-] smb can't determine whether %s is vulnerable or not\n", ip)
 		//var Err = errors.New("can't determine whether target is vulnerable or not")
 		return windows_version_probe(ip)
 	}
@@ -346,7 +346,7 @@ func windows_version_probe(ip string) error {
 			if netbiosDomainName != dnsDomainName && netbiosDomainName != FQDN {
 				domainInfo = fmt.Sprintf("[%s] [%s] [%s]", netbiosDomainName, dnsDomainName, FQDN)
 			}
-			common.LogSuccess(result + domainInfo)
+			common.LogSuccess(result + domainInfo + "\n")
 		}
 	}
 
@@ -371,7 +371,7 @@ func windows_version_probe(ip string) error {
 		// 	return r == '\x00'
 		// })
 		clean_str := strings.ReplaceAll(slice[1], "\x00", "")
-		result := fmt.Sprintf("[*] OsInfo %s\t(W%s) ", ip, clean_str)
+		result := fmt.Sprintf("[*] OsInfo %s\t(W%s)", ip, clean_str)
 
 		ntlmFlag := []byte("NTLMSSP")
 		start := bytes.Index(reponse_byte, ntlmFlag) // 查找字节串的位置
@@ -404,7 +404,7 @@ func windows_version_probe(ip string) error {
 		if netbiosDomainName != dnsDomainName && netbiosDomainName != FQDN {
 			domainInfo = fmt.Sprintf("[%s] [%s] [%s]", netbiosDomainName, dnsDomainName, FQDN)
 		}
-		common.LogSuccess(result + domainInfo)
+		common.LogSuccess(result + domainInfo + "\n")
 	}
 	return err
 }

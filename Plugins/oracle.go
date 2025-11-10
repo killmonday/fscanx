@@ -11,9 +11,13 @@ import (
 )
 
 func OracleScan(info *common.HostInfo) (tmperr error) {
-	if common.NoBrute {
+	if common.DoBrute == false {
 		return
 	}
+	common.BruteTaskRateCtrlCh <- struct{}{}
+	defer func() {
+		<-common.BruteTaskRateCtrlCh
+	}()
 	starttime := time.Now().Unix()
 	for _, user := range common.Userdict["oracle"] {
 		for _, pass := range common.Passwords {

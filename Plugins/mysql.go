@@ -11,9 +11,13 @@ import (
 )
 
 func MysqlScan(info *common.HostInfo) (tmperr error) {
-	if common.NoBrute {
+	if common.DoBrute == false {
 		return
 	}
+	common.BruteTaskRateCtrlCh <- struct{}{}
+	defer func() {
+		<-common.BruteTaskRateCtrlCh
+	}()
 	starttime := time.Now().Unix()
 	for _, user := range common.Userdict["mysql"] {
 		for _, pass := range common.Passwords {

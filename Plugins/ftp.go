@@ -16,7 +16,7 @@ func checkAnouymousLogin(info *common.HostInfo) (tmperr error) {
 	//status, err := FtpConn(info, "anonymous", "<anypassword>")
 	status, err := FtpConn(info, "anonymous", "anonymous")
 	if status && err == nil {
-		//res := fmt.Sprintf("[+] ftp %v:%v %v", info.Host, info.Ports, "anonymous any2")
+		//res := fmt.Sprintf("[+] ftp %v:%v %v", info.Host, info.PortsInput, "anonymous any2")
 		//common.LogSuccess(res)
 	} else {
 		tmperr = err
@@ -25,10 +25,14 @@ func checkAnouymousLogin(info *common.HostInfo) (tmperr error) {
 }
 
 func FtpScan(info *common.HostInfo) (tmperr error) {
-	if common.NoBrute {
+	if common.DoBrute == false {
 		checkAnouymousLogin(info)
 		return
 	}
+	common.BruteTaskRateCtrlCh <- struct{}{}
+	defer func() {
+		<-common.BruteTaskRateCtrlCh
+	}()
 	if err := checkAnouymousLogin(info); err == nil {
 		return err
 	} else {
@@ -36,7 +40,7 @@ func FtpScan(info *common.HostInfo) (tmperr error) {
 		//if flag && err == nil {
 		//	return err
 		//} else {
-		//	//errlog := fmt.Sprintf("[-] ftp %v:%v %v %v", info.Host, info.Ports, "anonymous", "any")
+		//	//errlog := fmt.Sprintf("[-] ftp %v:%v %v %v", info.Host, info.PortsInput, "anonymous", "any")
 		//	//common.LogError(errlog)
 		//	tmperr = err
 		//	if common.CheckErrs(err) {

@@ -12,7 +12,7 @@ import (
 )
 
 func SmbScan(info *common.HostInfo) (tmperr error) {
-	if common.NoBrute {
+	if common.DoBrute == false {
 		conn, err := common.WrapperTcpWithTimeout("tcp", info.Host+":"+info.Ports, time.Duration(common.TcpTimeout*2)*time.Second)
 		if err != nil {
 			return
@@ -72,7 +72,7 @@ func SmbScan(info *common.HostInfo) (tmperr error) {
 			err = iofs.WalkDir(fs.DirFS("."), ".", func(path string, d iofs.DirEntry, err error) error {
 				if path != "." {
 					res += fmt.Sprintf("\n   [->] [%s] %s", shareName, path)
-					//common.LogSuccess(fmt.Sprintf("[+] smb %s explorer, sharename[%s]: %s\n", info.Host+":"+info.Ports, shareName, path))
+					//common.LogSuccess(fmt.Sprintf("[+] smb %s explorer, sharename[%s]: %s\n", info.Host+":"+info.PortsInput, shareName, path))
 				}
 				return nil
 			})
@@ -136,7 +136,7 @@ func SmblConn(info *common.HostInfo, user string, pass string, signal chan struc
 	//}
 	//signal <- struct{}{}
 	//return flag, err
-
+	defer func() { signal <- struct{}{} }()
 	conn, err := common.WrapperTcpWithTimeout("tcp", info.Host+":"+info.Ports, time.Duration(common.TcpTimeout*2)*time.Second)
 	if err != nil {
 		return

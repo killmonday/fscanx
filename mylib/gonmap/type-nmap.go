@@ -35,7 +35,7 @@ type Nmap struct {
 func (n *Nmap) ScanTimeout(ip string, port int, timeout time.Duration, single_probe_timeout time.Duration) (status Status, response *Response) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	n.single_tz_timeout = single_probe_timeout
-	var resChan = make(chan bool)
+	var resChan = make(chan bool, 1)
 
 	defer func() {
 		if r := recover(); r != nil {
@@ -45,18 +45,31 @@ func (n *Nmap) ScanTimeout(ip string, port int, timeout time.Duration, single_pr
 		cancel()
 	}()
 
-	go func() {
+	common.PoolScan.Submit(func() {
 		defer func() {
 			if r := recover(); r != nil {
-				if fmt.Sprint(r) != "send on closed channel" {
-					panic(r)
-				}
+				//debug.PrintStack()
 			}
 		}()
 		status, response = n.Scan(ip, port)
 
 		resChan <- true
-	}()
+	})
+
+	//go func() {
+	//	defer func() {
+	//		if r := recover(); r != nil {
+	//			//debug.PrintStack()
+	//			//if fmt.Sprint(r) != "send on closed channel" {
+	//			//	panic(r)
+	//			//}
+	//			//fmt.Println("nmap scan err:", ip, port)
+	//		}
+	//	}()
+	//	status, response = n.Scan(ip, port)
+	//
+	//	resChan <- true
+	//}()
 
 	select {
 	case <-ctx.Done():
@@ -67,6 +80,16 @@ func (n *Nmap) ScanTimeout(ip string, port int, timeout time.Duration, single_pr
 }
 
 func (n *Nmap) Scan(ip string, port int) (status Status, response *Response) {
+	defer func() {
+		if r := recover(); r != nil {
+			//debug.PrintStack()
+			//if fmt.Sprint(r) != "send on closed channel" {
+			//	panic(r)
+			//}
+			//fmt.Println("nmap scan err:", ip, port)
+		}
+	}()
+
 	var probeNames ProbeList
 
 	if n.bypassAllProbePort.exist(port) == true {
@@ -105,7 +128,7 @@ func (n *Nmap) getRealResponse(host string, port int, timeout time.Duration, pro
 	if status != Matched {
 		return status, response
 	}
-	if response.FingerPrint.Service == "ssl" {
+	if response != nil && response.FingerPrint.Service == "ssl" {
 		//fmt.Println("[debug] start second ssl probe ..")
 		status, response := n.getResponseBySSLSecondProbes(host, port, timeout)
 		//fmt.Println("[debug] second ssl probe done,  status:", status, ", resp:", response) //"service:", response.FingerPrint.Service
@@ -120,7 +143,7 @@ func (n *Nmap) getRealResponse(host string, port int, timeout time.Duration, pro
 func (n *Nmap) getResponseBySSLSecondProbes(host string, port int, timeout time.Duration) (status Status, response *Response) {
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Printf("[CRITICAL] getResponseBySSLSecondProbes panic: %v\n", r)
+			//fmt.Printf("[CRITICAL] getResponseBySSLSecondProbes panic: %v\n", r)
 		}
 	}()
 
@@ -132,7 +155,7 @@ func (n *Nmap) getResponseBySSLSecondProbes(host string, port int, timeout time.
 		//fmt.Println("[debug] send third ssl probe package..")
 		status, response = n.getResponseByHTTPS(host, port, timeout)
 	}
-	if status == Matched && response.FingerPrint.Service != "ssl" {
+	if status == Matched && response != nil && response.FingerPrint.Service != "ssl" {
 		if response.FingerPrint.Service == "http" {
 			response.FingerPrint.Service = "https"
 		}
@@ -144,7 +167,7 @@ func (n *Nmap) getResponseBySSLSecondProbes(host string, port int, timeout time.
 func (n *Nmap) getResponseByHTTPS(host string, port int, timeout time.Duration) (status Status, response *Response) {
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Printf("[CRITICAL] getResponseByHTTPS panic: %v\n", r)
+			//fmt.Printf("[CRITICAL] getResponseByHTTPS panic: %v\n", r)
 		}
 	}()
 	var httpRequest = n.probeNameMap["TCP_GetRequest"]
@@ -174,7 +197,6 @@ func (n *Nmap) getResponseByProbes(host string, port int, timeout time.Duration,
 		//}
 
 		//logger.Printf("Target:%s:%d,Probe:%s,Status:%v", host, port, requestName, status)
-
 		if status == Closed || status == Matched {
 			//if status == Matched {
 			responseNotMatch = nil
@@ -193,7 +215,7 @@ func (n *Nmap) getResponseByProbes(host string, port int, timeout time.Duration,
 func (n *Nmap) getResponse(host string, port int, tls bool, timeout time.Duration, p *probe) (Status, *Response) {
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Printf("[CRITICAL] getResponse panic: %v\n", r)
+			//fmt.Printf("[CRITICAL] getResponse panic: %v\n", r)
 		}
 	}()
 	if port == 53 {
@@ -207,7 +229,7 @@ func (n *Nmap) getResponse(host string, port int, tls bool, timeout time.Duratio
 	//fmt.Println("[debug] scan port done,  return text:", text, ", tls:", tls, ", err:", err)
 
 	if err != nil {
-		if strings.Contains(err.Error(), "connect fail") {
+		if strings.Contains(err.Error(), "connect fail") || strings.Contains(err.Error(), "refused") {
 			return Closed, nil
 		}
 		if common.Socks5Proxy != "" {
@@ -222,29 +244,34 @@ func (n *Nmap) getResponse(host string, port int, tls bool, timeout time.Duratio
 			}
 		}
 
-		if p.protocol == "UDP" && strings.Contains(err.Error(), "refused") {
+		//if p.protocol == "UDP" {
+		//	return Closed, nil
+		//}
+
+		if strings.Contains(err.Error(), "timeout") {
 			return Closed, nil
 		}
+
 		return Open, nil
 	}
 
-	certInfo := ""
-	if len(text) >= 10 && text[:10] == "wadbm[Cert" {
-		if idx := strings.Index(text, "\n"); idx != -1 {
-			certInfo = text[5:idx]
-			text = text[idx+1:]
-		}
-	}
+	//certInfo := ""
+	//if len(text) >= 10 && text[:10] == "wadbm[Cert" {
+	//	if idx := strings.Index(text, "\n"); idx != -1 {
+	//		certInfo = text[5:idx]
+	//		text = text[idx+1:]
+	//	}
+	//}
 
 	response := &Response{
 		Raw:         text,
 		TLS:         tls,
 		FingerPrint: &FingerPrint{},
 	}
-	//若存在返回包，则开始捕获指纹
+	//若存在返回包，则开始做指纹匹配
 	fingerPrint := n.getFinger(text, tls, p.name)
 	response.FingerPrint = fingerPrint
-	response.FingerPrint.Info = certInfo
+	//response.FingerPrint.Info = certInfo
 	if fingerPrint.Service == "" {
 		return NotMatched, response
 	} else {
@@ -288,13 +315,14 @@ func (n *Nmap) getFinger(responseRaw string, tls bool, requestName string) *Fing
 
 func (n *Nmap) convResponse(s1 string) string {
 	//为了适配go语言的沙雕正则，只能讲二进制强行转换成UTF-8
-	b1 := []byte(s1)
-	var r1 []rune
-	for _, i := range b1 {
-		r1 = append(r1, rune(i))
-	}
-	s2 := string(r1)
-	return s2
+	//b1 := []byte(s1)
+	//var r1 []rune
+	//for _, i := range b1 {
+	//	r1 = append(r1, rune(i))
+	//}
+	//s2 := string(r1)
+	//return s2
+	return s1
 }
 
 //配置类
@@ -315,8 +343,8 @@ func (n *Nmap) AddMatch(probeName string, expr string) {
 
 //初始化类
 
-func (n *Nmap) loads(s string) {
-	lines := strings.Split(s, "\n")
+func (n *Nmap) loads(s *string) {
+	lines := strings.Split(*s, "\n")
 	var probeGroups [][]string
 	var probeLines []string
 	for _, line := range lines {

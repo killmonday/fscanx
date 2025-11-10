@@ -548,8 +548,9 @@ def OutPut(sheetname, sheetList):
             ws.append(i)
         except openpyxl.utils.exceptions.IllegalCharacterError:
             i[-1] = ILLEGAL_CHARACTERS_RE.sub(r'', i[-1])
+            for index, item in enumerate(i):
+                i[index] = ILLEGAL_CHARACTERS_RE.sub(r'', item)
             ws.append(i)
-            traceback.print_exc()
         except Exception as e:
             print('[debug] write excel err, content:', i)
             traceback.print_exc()

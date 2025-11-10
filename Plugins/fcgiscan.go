@@ -20,7 +20,7 @@ import (
 //https://github.com/wofeiwo/webcgi-exploits
 
 func FcgiScan(info *common.HostInfo) {
-	if common.NoBrute {
+	if common.DoBrute == false {
 		return
 	}
 	url := "/etc/issue"

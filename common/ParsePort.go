@@ -5,6 +5,7 @@ import (
 	"strings"
 )
 
+// 将用户输入的端口字符串解析为int切片。有时候用户输入的不是端口，而是端口组的名称如"web1"（保存在PortGroup），也会在这里被解析
 func ParsePort(ports string) (scanPorts []int) {
 	if ports == "" {
 		return

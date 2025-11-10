@@ -4,7 +4,7 @@ import (
 	"crypto/md5"
 	"fmt"
 	"github.com/google/cel-go/cel"
-	"github.com/xxx/wscan/WebScan/info"
+	"github.com/xxx/wscan/PocScan/info"
 	"github.com/xxx/wscan/common"
 	"math/rand"
 	"net/http"

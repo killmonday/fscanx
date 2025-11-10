@@ -28,7 +28,7 @@ func init() {
 }
 
 func WmiExec(info *common.HostInfo) (tmperr error) {
-	if common.NoBrute {
+	if common.DoBrute == false {
 		return nil
 	}
 	starttime := time.Now().Unix()

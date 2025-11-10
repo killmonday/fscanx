@@ -1,9 +1,9 @@
-package WebScan
+package PocScan
 
 import (
 	"embed"
 	"fmt"
-	"github.com/xxx/wscan/WebScan/lib"
+	"github.com/xxx/wscan/PocScan/lib"
 	"github.com/xxx/wscan/common"
 	"net/http"
 	"os"
@@ -26,8 +26,8 @@ func PocScan(info *common.HostInfo) {
 	if pocinfo.PocName != "" {
 		Execute(pocinfo)
 	} else {
-		for _, infostr := range info.Infostr {
-			pocinfo.PocName = lib.CheckInfoPoc(infostr)
+		for _, pocStr := range info.PocName {
+			pocinfo.PocName = lib.CheckInfoPoc(pocStr)
 			Execute(pocinfo)
 		}
 	}

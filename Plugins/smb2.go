@@ -12,7 +12,7 @@ import (
 )
 
 func SmbScan2(info *common.HostInfo) (tmperr error) {
-	if common.NoBrute {
+	if common.DoBrute == false {
 		return nil
 	}
 	hasprint := false

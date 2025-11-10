@@ -15,21 +15,35 @@ import (
 	"github.com/xxx/wscan/common"
 )
 
+var RegHttpResp = regexp.MustCompile(`HTTP\/\S+\s+[\d]{3}\s+`)
+
 func tcpSend(protocol string, netloc string, data string, duration time.Duration, size int) (string, error) {
 	protocol = strings.ToLower(protocol)
+	//fmt.Println("[debug]   tcpSend 1")
 	conn, err := common.WrapperTcpWithTimeout(protocol, netloc, duration)
+	//fmt.Println("[debug]   tcpSend 2，", conn, err)
+	if conn != nil {
+		defer conn.Close()
+	}
 	if err != nil {
 		return "", errors.New(err.Error() + ", connect fail")
 	}
+	//fmt.Println("[debug]   tcpSend 2.5")
 
 	// 设置套接字延迟关闭选项，当调用 conn.Close() 时，立即关闭连接，不等待任何未发送或未确认的数据
 	if _, ok := conn.(*net.TCPConn); ok {
+		//fmt.Println("[debug] tcpSend 2.6")
+
 		err = conn.(*net.TCPConn).SetLinger(0)
+		//fmt.Println("[debug] tcpSend 2.7")
+
 		if err != nil {
 			fmt.Println("set socket delay close fail:", err)
 			return "", err
 		}
 	}
+	//fmt.Println("[debug] tcpSend 3")
+
 	//err = conn.(*net.TCPConn).SetLinger(0)
 	//if err != nil {
 	//	fmt.Println("设置套接字延迟关闭选项失败:", err)
@@ -74,7 +88,11 @@ func tcpSend(protocol string, netloc string, data string, duration time.Duration
 	// }
 
 	_, err = conn.Write([]byte(data))
+	//fmt.Println("[debug] tcpSend 4")
+
 	conn.SetDeadline(time.Now().Add(time.Duration(common.TcpTimeout) * time.Second))
+	//fmt.Println("[debug] tcpSend 5")
+
 	//fmt.Println("[debug] send :", data, "sendto:", conn.RemoteAddr().String())
 	if err != nil {
 		return "", errors.New(err.Error() + " STEP2:WRITE")
@@ -94,10 +112,13 @@ func tcpSend(protocol string, netloc string, data string, duration time.Duration
 		} else {
 			length, err = conn.Read(tmp)
 		}
+		if err != nil {
+			//fmt.Println(err)
+			return "", err
+		}
 		buf = append(buf, tmp[:length]...)
 		if is_first_read {
-			re := regexp.MustCompile(`HTTP\/\S+\s+[\d]{3}\s+`)
-			match := re.FindSubmatch(tmp)
+			match := RegHttpResp.FindSubmatch(tmp)
 			if len(match) > 0 {
 				break
 			}
@@ -107,7 +128,7 @@ func tcpSend(protocol string, netloc string, data string, duration time.Duration
 			break
 		}
 		if err != nil {
-			fmt.Println(err)
+			//fmt.Println(err)
 			break
 		}
 		if len(buf) > size {
@@ -142,7 +163,7 @@ func printCertificate(cert *x509.Certificate) string {
 func tlsSend(protocol string, netloc string, data string, duration time.Duration, size int) (string, error) {
 	defer func() {
 		if r := recover(); r != nil {
-			fmt.Printf("[CRITICAL] tlsSend panic: %v\n", r)
+			//fmt.Printf("[CRITICAL] tlsSend panic: %v\n", r)
 		}
 	}()
 
@@ -161,39 +182,12 @@ func tlsSend(protocol string, netloc string, data string, duration time.Duration
 	// 	return "", errors.New(err.Error() + " STEP1:CONNECT")
 	// }
 
-	//own
-	// local_ip := "0.0.0.0"
-	// if common.Iface != "" {
-	// 	local_ip = common.Iface
-	// }
-	// net_ip := net.ParseIP(local_ip)
-	// if net_ip == nil {
-	// 	net_ip = net.ParseIP("0.0.0.0")
-	// }
-	// local_addr := &net.TCPAddr{
-	// 	IP: net_ip, // 替换为你想要使用的本地IP地址
-	// }
-	// var socksconn net.Conn
-	// var err error
-	// d := &net.Dialer{Timeout: duration, LocalAddr: local_addr}
-	// if common.Socks5Proxy != "" {
-	// 	dailer, err := common.Socks5Dailer(d)
-	// 	if err != nil {
-	// 		return "", err
-	// 	}
-	// 	socksconn, err = dailer.Dial(protocol, netloc)
-	// 	if err != nil {
-	// 		return "", err
-	// 	}
-	// } else {
-	// 	socksconn, err = d.Dial(protocol, netloc)
-	// 	if err != nil {
-	// 		return "", err
-	// 	}
-	// }
 	socksconn, err := common.WrapperTcpWithTimeout(protocol, netloc, duration)
 	if err != nil {
 		return "", errors.New(err.Error() + " connect fail")
+	}
+	if socksconn != nil {
+		defer socksconn.Close()
 	}
 	conn := tls.Client(socksconn, config)
 	if conn != nil {
@@ -206,21 +200,6 @@ func tlsSend(protocol string, netloc string, data string, duration time.Duration
 	if err != nil {
 		//fmt.Println("TLS handshake failed: %v", err)
 		return "", err
-	}
-
-	// 获取连接状态
-	state := conn.ConnectionState()
-	//fmt.Println("[debug] state:", state)
-
-	// 打印证书信息
-	//fmt.Println("[debug]=============\nCertificate Information:")
-	//for i, cert := range state.PeerCertificates {
-	//	fmt.Printf("Certificate #%d:\n", i+1)
-	//	printCertificate(cert)
-	//}
-	certInfo := ""
-	if state.PeerCertificates != nil {
-		certInfo = printCertificate(state.PeerCertificates[0])
 	}
 
 	_, err = io.WriteString(conn, data)
@@ -241,8 +220,7 @@ func tlsSend(protocol string, netloc string, data string, duration time.Duration
 		buf = append(buf, tmp[:length]...)
 
 		if is_first_read {
-			re := regexp.MustCompile(`HTTP\/\S+\s+[\d]{3}\s+`)
-			match := re.FindSubmatch(tmp)
+			match := RegHttpResp.FindSubmatch(tmp)
 			if len(match) > 0 {
 				break
 			}
@@ -265,7 +243,7 @@ func tlsSend(protocol string, netloc string, data string, duration time.Duration
 	if len(buf) == 0 {
 		return "", errors.New("STEP3:response is empty")
 	}
-	return certInfo + string(buf), nil
+	return string(buf), nil
 }
 
 func Send(protocol string, tls bool, netloc string, data string, duration time.Duration, size int) (string, error) {

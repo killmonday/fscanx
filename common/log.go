@@ -35,10 +35,21 @@ func init() {
 	go SaveLog()
 }
 
-func LogSuccess(result string) {
+//func LogSuccess(result string) {
+//	LogWG.Add(1)
+//	LogSucTime = time.Now().Unix()
+//	Results <- &result
+//}
+
+func LogSuccess(formatStr string, a ...any) {
 	LogWG.Add(1)
 	LogSucTime = time.Now().Unix()
-	Results <- &result
+	if a != nil {
+		printStr := fmt.Sprintf(formatStr, a...)
+		Results <- &printStr
+	} else {
+		Results <- &formatStr
+	}
 }
 
 func SaveLog() {
@@ -52,6 +63,11 @@ func SaveLog() {
 	}
 
 	var colorFlag bool = true
+	whiteStyle := color.New(color.FgWhite)
+	yeStyleHi := color.New(color.FgHiYellow, color.Bold)
+	cyanStyle := color.New(color.FgCyan)
+	preTextStyle := color.New(color.FgWhite)
+
 	for result := range Results {
 		if !Silent {
 			if Nocolor {
@@ -66,11 +82,7 @@ func SaveLog() {
 						//color.HiYellow(*result)
 						if strings.HasPrefix(*result, "[+] Product") {
 							slice := strings.Split(*result, "\t")
-							whiteStyle := color.New(color.FgWhite)
-							whiteStyle.Print(slice[0] + "\t" + slice[1] + "\t")
-
-							yeStyleHi := color.New(color.FgHiYellow, color.Bold)
-
+							preTextStyle.Print(slice[0] + "\t" + slice[1] + "\t")
 							yeStyleHi.Print(slice[2] + "\t")
 							whiteStyle.Println(strings.Join(slice[3:], "\t"))
 						} else {
@@ -81,11 +93,7 @@ func SaveLog() {
 					} else {
 						if strings.HasPrefix(*result, "[+] Product") {
 							slice := strings.Split(*result, "\t")
-							cyanStyle := color.New(color.FgCyan)
-							cyanStyle.Print(slice[0] + "\t" + slice[1] + "\t")
-
-							yeStyleHi := color.New(color.FgHiYellow, color.Bold)
-
+							preTextStyle.Print(slice[0] + "\t" + slice[1] + "\t")
 							yeStyleHi.Print(slice[2] + "\t")
 							cyanStyle.Println(strings.Join(slice[3:], "\t"))
 						} else {
@@ -95,6 +103,8 @@ func SaveLog() {
 						colorFlag = true
 					}
 
+				} else if strings.Index(*result, "rdpscan") != -1 {
+					color.Yellow(*result)
 				} else if strings.HasPrefix(*result, "[+]") {
 					color.Red(*result)
 				} else {

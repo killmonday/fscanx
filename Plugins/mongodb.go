@@ -9,9 +9,13 @@ import (
 )
 
 func MongodbScan(info *common.HostInfo) error {
-	if common.NoBrute {
+	if common.DoBrute == false {
 		return nil
 	}
+	common.BruteTaskRateCtrlCh <- struct{}{}
+	defer func() {
+		<-common.BruteTaskRateCtrlCh
+	}()
 	_, err := MongodbUnauth(info)
 	if err != nil {
 		errlog := fmt.Sprintf("[-] Mongodb %v:%v %v", info.Host, info.Ports, err)

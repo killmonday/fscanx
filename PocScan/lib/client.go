@@ -1,7 +1,6 @@
 package lib
 
 import (
-	"context"
 	"crypto/tls"
 	"embed"
 	"errors"
@@ -20,44 +19,39 @@ import (
 var (
 	Client           *http.Client
 	ClientNoRedirect *http.Client
-	dialTimout       = 5 * time.Second
-	keepAlive        = 5 * time.Second
 )
 
 func Inithttp() {
-	//common.Proxy = "http://127.0.0.1:8080"
-	if common.PocNum == 0 {
-		common.PocNum = 20
-	}
-	if common.WebTimeout == 0 {
-		common.WebTimeout = 5
-	}
-	err := InitHttpClient(common.PocNum, common.Proxy, time.Duration(common.WebTimeout)*time.Second)
+	err := InitHttpClient(common.Proxy, time.Duration(common.WebTimeout)*time.Second)
 	if err != nil {
 		panic(err)
 	}
 }
 
-func InitHttpClient(ThreadsNum int, DownProxy string, Timeout time.Duration) error {
-	type DialContext = func(ctx context.Context, network, addr string) (net.Conn, error)
-	dialer := &net.Dialer{
-		Timeout:   dialTimout,
-		KeepAlive: keepAlive,
+func InitHttpClient(DownProxy string, Timeout time.Duration) error {
+	dialTimout := time.Duration(float64(common.WebTimeout) * 0.5 * float64(time.Second)) // 5s
+	keepAlive := 1 * time.Second
+
+	dialerCtx := &net.Dialer{
+		Timeout:   dialTimout, // tcp 连接的超时时间
+		KeepAlive: keepAlive,  // tcp Keep-Alive 的探测间隔时间
 	}
 
 	tr := &http.Transport{
-		DialContext:         dialer.DialContext,
-		MaxConnsPerHost:     5,
-		MaxIdleConns:        0,
-		MaxIdleConnsPerHost: ThreadsNum * 2,
-		IdleConnTimeout:     keepAlive,
+		DialContext:         dialerCtx.DialContext, //控制连接的建立时间（含tls握手），不包含后续的数据发送和接收的超时
+		MaxConnsPerHost:     1,                     // 每个 host 最大连接数
+		MaxIdleConnsPerHost: 1,                     // 每个 host 最大空闲连接数
+		MaxIdleConns:        1,                     // 全局空闲连接数限制
+		IdleConnTimeout:     keepAlive,             //空闲连接在多长时间后会被关闭
 		TLSClientConfig:     &tls.Config{MinVersion: tls.VersionTLS10, InsecureSkipVerify: true},
-		TLSHandshakeTimeout: 5 * time.Second,
-		DisableKeepAlives:   false,
-	}
+		TLSHandshakeTimeout: time.Duration(float64(dialTimout) * 0.8), // TLS握手超时 4s
 
+		ResponseHeaderTimeout: time.Duration(float64(common.WebTimeout) * 0.6 * float64(time.Second)), // 设置读取响应头超时 6s
+		DisableKeepAlives:     true,
+		ForceAttemptHTTP2:     false,
+	}
 	if common.Socks5Proxy != "" {
-		dialSocksProxy, err := common.Socks5Dailer(dialer)
+		dialSocksProxy, err := common.Socks5Dailer(dialerCtx)
 		if err != nil {
 			return err
 		}
@@ -86,11 +80,11 @@ func InitHttpClient(ThreadsNum int, DownProxy string, Timeout time.Duration) err
 
 	Client = &http.Client{
 		Transport: tr,
-		Timeout:   Timeout,
+		Timeout:   Timeout, //整个HTTP请求的超时，包括连接、请求发送、响应接收
 	}
 	ClientNoRedirect = &http.Client{
 		Transport:     tr,
-		Timeout:       Timeout,
+		Timeout:       Timeout, //整个HTTP请求的超时，包括连接、请求发送、响应接收
 		CheckRedirect: func(req *http.Request, via []*http.Request) error { return http.ErrUseLastResponse },
 	}
 	return nil

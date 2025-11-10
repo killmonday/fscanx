@@ -27,14 +27,19 @@ func ByteToUTF8(strBuf []byte) []byte {
 	if isUtf8(strBuf) {
 		return strBuf
 	} else {
+		if GB18030Buf, err := simplifiedchinese.GB18030.NewDecoder().Bytes(strBuf); err == nil {
+			if isUtf8(GB18030Buf) == true {
+				return GB18030Buf
+			}
+		}
 		if GBKBuf, err := simplifiedchinese.GBK.NewDecoder().Bytes(strBuf); err == nil {
 			if isUtf8(GBKBuf) == true {
 				return GBKBuf
 			}
 		}
-		if GB18030Buf, err := simplifiedchinese.GB18030.NewDecoder().Bytes(strBuf); err == nil {
-			if isUtf8(GB18030Buf) == true {
-				return GB18030Buf
+		if GB2312Buf, err := simplifiedchinese.HZGB2312.NewDecoder().Bytes(strBuf); err == nil {
+			if isUtf8(GB2312Buf) == true {
+				return GB2312Buf
 			}
 		}
 		return strBuf

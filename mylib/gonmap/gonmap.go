@@ -24,7 +24,13 @@ type Logger interface {
 
 // r["PROBE"] 总探针数、r["MATCH"] 总指纹数 、r["USED_PROBE"] 已使用探针数、r["USED_MATCH"] 已使用指纹数
 func init() {
-	initWithFilter(9)
+	//initWithFilter(9)
+}
+
+func Clear() {
+	if nmap != nil {
+		nmap = nil
+	}
 }
 
 func initWithFilter(filter int) {
@@ -45,10 +51,14 @@ func initWithFilter(filter int) {
 		allProbeMap:        []string{"TCP_GetRequest", "TCP_NULL"}, //优先探测这些探针，除非当前端口在bypassAllProbePort数组里
 		sslProbeMap:        []string{"TCP_TLSSessionReq", "TCP_SSLSessionReq", "TCP_SSLv23SessionReq"},
 	}
-	//for i := 0; i <= 65535; i++ {
-	//	nmap.portProbeMap[i] = []string{}
-	//}
-	nmap.loads(nmapServiceProbes + nmapCustomizeProbes)
+	for i := 0; i <= 65535; i++ {
+		nmap.portProbeMap[i] = []string{}
+	}
+	//nmap.portProbeMap[0] = []string{}
+
+	//nmap.loads(nmapServiceProbes + nmapCustomizeProbes)
+	nmap.loads(&nmapServiceProbes)
+	nmap.loads(&nmapCustomizeProbes)
 	//修复fallback
 	nmap.fixFallback()
 	//新增自定义指纹信息

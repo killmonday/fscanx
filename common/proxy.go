@@ -10,7 +10,10 @@ import (
 	"time"
 )
 
-func WrapperTcpWithTimeout(network, address string, timeout time.Duration) (net.Conn, error) {
+var GDialer = &net.Dialer{Timeout: 5 * time.Second}
+var defaultTcpDuration time.Duration
+
+func initDialer(timeout time.Duration) {
 	local_ip := "0.0.0.0"
 	if Iface != "" {
 		local_ip = Iface
@@ -22,7 +25,21 @@ func WrapperTcpWithTimeout(network, address string, timeout time.Duration) (net.
 	local_addr := &net.TCPAddr{
 		IP: net_ip, // 替换为你想要使用的本地IP地址
 	}
-	d := &net.Dialer{Timeout: timeout, LocalAddr: local_addr}
+	GDialer.Timeout = timeout
+	GDialer.LocalAddr = local_addr
+	defaultTcpDuration = time.Duration(TcpTimeout)
+}
+
+func WrapperTcpWithTimeout(network, address string, timeout time.Duration) (net.Conn, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			LogSuccess("[ERROR] Goroutine WrapperTcpWithTimeout panic: %v\n", r)
+		}
+	}()
+	d := GDialer
+	if timeout != defaultTcpDuration {
+		d = &net.Dialer{Timeout: timeout}
+	}
 	return WrapperTCP(network, address, d)
 }
 
@@ -52,12 +69,12 @@ func GetProxyDialer() interface{} {
 
 }
 
+// WrapperTCP 建立连接返回conn
 func WrapperTCP(network, address string, forward *net.Dialer) (net.Conn, error) {
-	//get conn
 	var conn net.Conn
+	// 无代理
 	if Socks5Proxy == "" {
 		var err error
-
 		if network == "udp" {
 			saddr := strings.Split(address, ":")
 			targetIP := saddr[0]
@@ -76,9 +93,13 @@ func WrapperTCP(network, address string, forward *net.Dialer) (net.Conn, error) 
 		}
 		conn, err = forward.Dial(network, address)
 		if err != nil {
+			if conn != nil {
+				conn.Close()
+			}
 			return nil, err
 		}
 	} else {
+		// 有代理
 		dailer, err := Socks5Dailer(forward)
 		if err != nil {
 			return nil, err
@@ -86,36 +107,11 @@ func WrapperTCP(network, address string, forward *net.Dialer) (net.Conn, error) 
 		conn, err = dailer.Dial(network, address)
 		if err != nil {
 			// fmt.Println(err)
+			if conn != nil {
+				conn.Close()
+			}
 			return nil, err
 		}
-
-		//own add
-		// timeout := forward.Timeout
-		// if err := conn.SetWriteDeadline(time.Now().Add(timeout)); err != nil {
-		// 	fmt.Println("Error setting conn write deadline:", err)
-		// }
-
-		// if err := conn.SetReadDeadline(time.Now().Add(timeout)); err != nil {
-		// 	fmt.Println("Error setting conn write deadline:", err)
-		// }
-
-		// // 发送数据到连接
-		// httpRequest := fmt.Sprintf("GET / HTTP/1.1\r\nHost: %s\r\n\r\n", address)
-		// _, err = conn.Write([]byte(httpRequest))
-		// if err != nil {
-		// 	fmt.Println("Error writing to connection:", err)
-		// 	return nil, err
-		// }
-
-		// // 从连接中读取响应
-		// buffer := make([]byte, 10)
-		// _, err = conn.Read(buffer)
-		// if err != nil {
-		// 	fmt.Println("Error reading from connection:", err)
-		// 	return nil, err
-		// }
-		//end
-
 	}
 
 	timeout := forward.Timeout
