@@ -1,0 +1,3 @@
+gzip -c fingers_http.json > fingers_http.json.gz
+
+gzip -c goby.json > goby.json.gz

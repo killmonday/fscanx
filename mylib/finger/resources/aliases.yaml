@@ -1,0 +1,424 @@
+- name: tomcat
+  vendor: apache
+  product: tomcat
+  alias:
+    fingers:
+      - tomcat
+    ehole:
+      - Apache Tomcat
+    goby:
+      - Apache-Tomcat
+    fingerprinthub:
+      - apache-tomcat
+    wappalyzer:
+      - Apache Tomcat
+    tanggo:
+      - tomcat默认页面
+      - apachetomcat
+      - apache_tomcat
+- name: block tanggo
+  vendor: null
+  product: null
+  block:
+    - tanggo
+  alias:
+    tanggo:
+      - html5
+      - javadoc
+- name: discuz
+  vendor: discuz
+  product: discuz
+  alias:
+      fingers:
+      - discuz
+      ehole:
+      - Discuz!
+      goby:
+      - Discuz
+      fingerprinthub:
+      - discuz
+      wappalyzer:
+      - Discuz!
+- name: 用友 NC
+  vendor: yonyou
+  product: NC
+  alias:
+    fingers:
+      - 用友NC
+    ehole:
+      - 用友NC
+      - YONYOU NC
+    goby:
+      - UFIDA NC
+    fingerprinthub:
+      - yonyou-ufida-nc
+
+- name: 用友 GRP-U8
+  vendor: yonyou
+  product: GRP-U8
+  alias:
+    fingers:
+      - 用友 GRP-U8
+    ehole:
+      - 用友 GRP-U8
+    goby:
+      - 用友GRP-U8
+    fingerprinthub:
+      - yonyou-grp-u8
+
+- name: 用友 U8 Cloud
+  vendor: yonyou
+  product: U8 Cloud
+  alias:
+    fingers:
+      - 用友 U8 Cloud
+    ehole:
+      - 用友 U8 Cloud
+    fingerprinthub:
+      - yonyou-u8-cloud
+
+- name: 用友 RMIS
+  vendor: yonyou
+  product: RMIS
+  alias:
+    fingers:
+      - 用友 RMIS
+    fingerprinthub:
+      - yonyou-rmis
+
+- name: 用友 TurboCRM
+  vendor: yonyou
+  product: TurboCRM
+  alias:
+    fingers:
+      - 用友 TurboCRM
+    fingerprinthub:
+      - yonyou-turbocrm
+
+- name: 用友 Seeyon OA
+  vendor: yonyou
+  product: Seeyon OA
+  alias:
+    fingers:
+      - 用友 Seeyon OA
+    fingerprinthub:
+      - yonyou-seeyon-oa
+
+- name: 泛微 e-cology
+  vendor: weaver
+  product: e-cology
+  alias:
+    fingers:
+      - 泛微 e-cology
+    ehole:
+      - 泛微 e-cology
+    goby:
+      - 泛微-协同办公OA
+    fingerprinthub:
+      - ecology泛微e-office
+
+- name: 泛微 e-mobile
+  vendor: weaver
+  product: e-mobile
+  alias:
+    fingers:
+      - 泛微 e-mobile
+    ehole:
+      - 泛微 e-mobile
+    goby:
+      - 泛微-移动办公OA
+    fingerprinthub:
+      - ecology泛微e-mobile
+
+- name: 泛微 云桥e-bridge
+  vendor: weaver
+  product: e-bridge
+  alias:
+    fingers:
+      - 泛微 云桥e-bridge
+    ehole:
+      - 泛微 云桥e-bridge
+    fingerprinthub:
+      - ecology泛微云桥e-bridge
+
+- name: 蓝凌 OA
+  vendor: landray
+  product: OA
+  alias:
+    fingers:
+      - 蓝凌 OA
+    ehole:
+      - 蓝凌 OA
+    goby:
+      - LandRay-OA system
+    fingerprinthub:
+      - landray-oa
+
+- name: 通达 OA
+  vendor: tongda
+  product: OA
+  alias:
+    fingers:
+      - 通达 OA
+    ehole:
+      - 通达 OA
+    goby:
+      - Tongda-OA
+    fingerprinthub:
+      - tongda-oa
+
+- name: 金蝶云 星空
+  vendor: kingdee
+  product: 星空
+  alias:
+    fingers:
+      - 金蝶云星空
+    ehole:
+      - 金蝶云星空
+    goby:
+      - Kingdee Cloud
+    fingerprinthub:
+      - kingdee-cloud
+
+- name: 帆软 FineReport
+  vendor: fanruan
+  product: FineReport
+  alias:
+    fingers:
+      - 帆软 FineReport
+    ehole:
+      - 帆软 FineReport
+    goby:
+      - FineReport
+    fingerprinthub:
+      - fanruan-finereport
+
+- name: 万户 OA
+  vendor: whir
+  product: OA
+  alias:
+    fingers:
+      - 万户 OA
+    ehole:
+      - 万户 OA
+    goby:
+      - Whir-OA
+    fingerprinthub:
+      - whir-oa
+
+- name: 华天 动力OA
+  vendor: huatian
+  product: 动力OA
+  alias:
+    fingers:
+      - 华天 动力OA
+    ehole:
+      - 华天 动力OA
+    goby:
+      - Huatian-OA
+    fingerprinthub:
+      - huatian-oa
+
+- name: 红帆 OA
+  vendor: hongfan
+  product: OA
+  alias:
+    fingers:
+      - 红帆 OA
+    ehole:
+      - 红帆 OA
+    goby:
+      - Hongfan-OA
+    fingerprinthub:
+      - hongfan-oa
+- name: 华天动力协同OA办公系统
+  vendor: huatian
+  product: collaborative
+  alias:
+    fingers:
+      - 华天动力协同OA办公系统
+      - 华天动力OA
+    ehole:
+      - 华天动力OA
+    fingerprinthub:
+      - 华天动力协同OA办公系统
+
+- name: IBOS企业协同管理软件
+  vendor: IBOS
+  product: collaborative
+  alias:
+    fingers:
+      - IBOS企业协同管理软件
+    ehole:
+      - IBOS企业协同管理软件
+
+- name: 信达OA
+  vendor: xdoa
+  product: OA
+  alias:
+    fingers:
+      - 信达OA
+    fingerprinthub:
+      - 信达OA
+
+- name: 协众OA
+  vendor: cnoa
+  product: OA
+  alias:
+    fingers:
+      - 协众OA
+    ehole:
+      - 协众OA
+    goby:
+      - CNOA
+    fingerprinthub:
+      - 协众OA
+
+- name: 京伦OA
+  vendor: jinglun
+  product: OA
+  alias:
+    fingers:
+      - 京伦OA
+    fingerprinthub:
+      - 京伦OA
+
+- name: 中望OA
+  vendor: xtoa
+  product: OA
+  alias:
+    fingers:
+      - 中望OA
+    fingerprinthub:
+      - 中望OA
+
+- name: 泛普软件 建筑工程施工OA
+  vendor: phpcms
+  product: construction
+  alias:
+    fingers:
+      - 泛普软件 建筑工程施工OA
+    ehole:
+      - 泛普 建筑工程施工OA
+    goby:
+      - Phpcms
+
+- name: 凤凰办公OA
+  vendor: fenghuang
+  product: OA
+  alias:
+    fingers:
+      - 凤凰办公OA
+    fingerprinthub:
+      - 凤凰办公OA
+
+- name: 九思OA
+  vendor: jiusi
+  product: OA
+  alias:
+    fingers:
+      - 九思OA
+      - 九思协同办公系统
+    fingerprinthub:
+      - 九思OA
+
+- name: 东华OA系统
+  vendor: donghua
+  product: OA
+  alias:
+    fingers:
+      - 东华OA系统
+    fingerprinthub:
+      - 东华OA系统
+
+- name: LemonOA
+  vendor: mossle
+  product: OA
+  alias:
+    fingers:
+      - LemonOA
+    fingerprinthub:
+      - LemonOA
+
+- name: PHPOA
+  vendor: phpoa
+  product: OA
+  alias:
+    fingers:
+      - PHPOA
+    ehole:
+      - PHPOA
+    fingerprinthub:
+      - PHPOA
+
+- name: 山大鲁能 OA
+  vendor: sanda
+  product: OA
+  alias:
+    fingers:
+      - 山大鲁能 OA
+    fingerprinthub:
+      - 山大鲁能 OA
+
+- name: 协达 OA
+  vendor: xietong
+  product: OA
+  alias:
+    fingers:
+      - 协达 OA
+    fingerprinthub:
+      - 协达 OA
+
+- name: TopOffice
+  vendor: topoffice
+  product: OA
+  alias:
+    fingers:
+      - TopOffice
+    fingerprinthub:
+      - TopOffice
+
+- name: CTOP OA
+  vendor: ctop
+  product: OA
+  alias:
+    fingers:
+      - CTOP OA
+    fingerprinthub:
+      - CTOP OA
+
+- name: 网康 NS-ASG应用安全网关
+  vendor: networktech
+  product: NS-ASG
+  alias:
+    fingers:
+      - 网康 NS-ASG应用安全网关
+    fingerprinthub:
+      - 网康 NS-ASG应用安全网关
+
+- name: 红帆 Ioffice
+  vendor: hongfan
+  product: Ioffice
+  alias:
+    fingers:
+      - ioffice
+    fingerprinthub:
+      - 红帆 Ioffice
+
+- name: redis
+  vendor: Redis
+  product: Redis
+  alias:
+    goby:
+      - Redis
+  block:
+    - goby
+
+- name: ibm-db2 database
+  vendor: ibm
+  product: db2
+  alias:
+    goby:
+      - IBM-DB2 database
+  block:
+    - goby
