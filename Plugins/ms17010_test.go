@@ -4,14 +4,14 @@ import (
 	"bytes"
 	"encoding/binary"
 	"fmt"
-	"github.com/xxx/wscan/common"
+	"github.com/killmonday/fscanx/common"
 	"strings"
 	"testing"
 	"time"
 )
 
 func TmpWindows_version_probe(ip string) error {
-	conn_smb2_methodA, err := common.WrapperTcpWithTimeout("tcp", ip+":445", time.Second*12)
+	conn_smb2_methodA, err := common.GetConn("tcp", ip+":445", time.Second*12)
 	if err != nil {
 		//fmt.Printf("failed to connect to %s\n", ip)
 		return err
@@ -32,7 +32,7 @@ func TmpWindows_version_probe(ip string) error {
 	_, err = conn_smb2_methodA.Read(reponse_byte)
 	if err != nil {
 		// if conn err, try another probe method
-		conn_smb2_methodB, err := common.WrapperTcpWithTimeout("tcp", ip+":445", time.Second*12)
+		conn_smb2_methodB, err := common.GetConn("tcp", ip+":445", time.Second*12)
 		if err != nil {
 			//fmt.Printf("failed to connect to %s\n", ip)
 			return err
@@ -230,7 +230,7 @@ func TestMS17010Scan(t *testing.T) {
 	//ip := "192.168.111.123"
 	ip := "192.168.111.27"
 	// connecting to a host in LAN if reachable should be very quick
-	conn, err := common.WrapperTcpWithTimeout("tcp", ip+":445", time.Second*12)
+	conn, err := common.GetConn("tcp", ip+":445", time.Second*12)
 	if err := conn.SetDeadline(time.Now().Add(time.Second * 12)); err != nil {
 		fmt.Println("Error setting conn write deadline:", err)
 		return

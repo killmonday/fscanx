@@ -1,7 +1,7 @@
 package core
 
 import (
-	"github.com/xxx/wscan/mylib/grdp/glog"
+	"github.com/killmonday/fscanx/mylib/grdp/glog"
 	"unsafe"
 )
 

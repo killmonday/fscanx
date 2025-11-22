@@ -6,14 +6,14 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xxx/wscan/mylib/grdp/core"
-	"github.com/xxx/wscan/mylib/grdp/plugin"
-	"github.com/xxx/wscan/mylib/grdp/protocol/nla"
-	"github.com/xxx/wscan/mylib/grdp/protocol/pdu"
-	"github.com/xxx/wscan/mylib/grdp/protocol/sec"
-	"github.com/xxx/wscan/mylib/grdp/protocol/t125"
-	"github.com/xxx/wscan/mylib/grdp/protocol/tpkt"
-	"github.com/xxx/wscan/mylib/grdp/protocol/x224"
+	"github.com/killmonday/fscanx/mylib/grdp/core"
+	"github.com/killmonday/fscanx/mylib/grdp/plugin"
+	"github.com/killmonday/fscanx/mylib/grdp/protocol/nla"
+	"github.com/killmonday/fscanx/mylib/grdp/protocol/pdu"
+	"github.com/killmonday/fscanx/mylib/grdp/protocol/sec"
+	"github.com/killmonday/fscanx/mylib/grdp/protocol/t125"
+	"github.com/killmonday/fscanx/mylib/grdp/protocol/tpkt"
+	"github.com/killmonday/fscanx/mylib/grdp/protocol/x224"
 )
 
 type RdpClient struct {

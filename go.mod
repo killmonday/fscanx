@@ -1,4 +1,4 @@
-module github.com/xxx/wscan
+module github.com/killmonday/fscanx
 
 go 1.20
 

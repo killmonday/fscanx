@@ -5,7 +5,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
-	"github.com/xxx/wscan/common"
+	"github.com/killmonday/fscanx/common"
 	"golang.org/x/net/proxy"
 	"gopkg.in/yaml.v2"
 	"net"
@@ -28,7 +28,7 @@ func Inithttp() {
 	}
 }
 
-func InitHttpClient(DownProxy string, Timeout time.Duration) error {
+func InitHttpClient(HttpProxy string, Timeout time.Duration) error {
 	dialTimout := time.Duration(float64(common.WebTimeout) * 0.5 * float64(time.Second)) // 5s
 	keepAlive := 1 * time.Second
 
@@ -51,6 +51,7 @@ func InitHttpClient(DownProxy string, Timeout time.Duration) error {
 		ForceAttemptHTTP2:     false,
 	}
 	if common.Socks5Proxy != "" {
+		//优先使用socks5代理
 		dialSocksProxy, err := common.Socks5Dailer(dialerCtx)
 		if err != nil {
 			return err
@@ -60,18 +61,18 @@ func InitHttpClient(DownProxy string, Timeout time.Duration) error {
 		} else {
 			return errors.New("Failed type assertion to DialContext")
 		}
-	} else if DownProxy != "" {
-		if DownProxy == "1" {
-			DownProxy = "http://127.0.0.1:8080"
-		} else if DownProxy == "2" {
-			DownProxy = "socks5://127.0.0.1:1080"
-		} else if !strings.Contains(DownProxy, "://") {
-			DownProxy = "http://127.0.0.1:" + DownProxy
+	} else if HttpProxy != "" {
+		if HttpProxy == "1" {
+			HttpProxy = "http://127.0.0.1:8080"
+		} else if HttpProxy == "2" {
+			HttpProxy = "socks5://127.0.0.1:1080"
+		} else if !strings.Contains(HttpProxy, "://") {
+			HttpProxy = "http://127.0.0.1:" + HttpProxy
 		}
-		if !strings.HasPrefix(DownProxy, "socks") && !strings.HasPrefix(DownProxy, "http") {
+		if !strings.HasPrefix(HttpProxy, "socks") && !strings.HasPrefix(HttpProxy, "http") {
 			return errors.New("no support this proxy")
 		}
-		u, err := url.Parse(DownProxy)
+		u, err := url.Parse(HttpProxy)
 		if err != nil {
 			return err
 		}

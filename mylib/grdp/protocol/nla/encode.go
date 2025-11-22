@@ -6,7 +6,7 @@ import (
 	"crypto/rc4"
 	"strings"
 
-	"github.com/xxx/wscan/mylib/grdp/core"
+	"github.com/killmonday/fscanx/mylib/grdp/core"
 	"golang.org/x/crypto/md4"
 )
 

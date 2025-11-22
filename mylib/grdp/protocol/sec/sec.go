@@ -14,14 +14,14 @@ import (
 
 	"github.com/lunixbochs/struc"
 
-	"github.com/xxx/wscan/mylib/grdp/protocol/nla"
+	"github.com/killmonday/fscanx/mylib/grdp/protocol/nla"
 
-	"github.com/xxx/wscan/mylib/grdp/core"
-	"github.com/xxx/wscan/mylib/grdp/emission"
-	"github.com/xxx/wscan/mylib/grdp/glog"
-	"github.com/xxx/wscan/mylib/grdp/protocol/lic"
-	"github.com/xxx/wscan/mylib/grdp/protocol/t125"
-	"github.com/xxx/wscan/mylib/grdp/protocol/t125/gcc"
+	"github.com/killmonday/fscanx/mylib/grdp/core"
+	"github.com/killmonday/fscanx/mylib/grdp/emission"
+	"github.com/killmonday/fscanx/mylib/grdp/glog"
+	"github.com/killmonday/fscanx/mylib/grdp/protocol/lic"
+	"github.com/killmonday/fscanx/mylib/grdp/protocol/t125"
+	"github.com/killmonday/fscanx/mylib/grdp/protocol/t125/gcc"
 )
 
 /**

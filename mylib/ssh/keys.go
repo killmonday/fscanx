@@ -29,7 +29,7 @@ import (
 	"math/big"
 	"strings"
 
-	"github.com/xxx/wscan/mylib/ssh/internal/bcrypt_pbkdf"
+	"github.com/killmonday/fscanx/mylib/ssh/internal/bcrypt_pbkdf"
 )
 
 // Public key algorithms names. These values can appear in PublicKey.Type,

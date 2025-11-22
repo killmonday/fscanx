@@ -11,11 +11,11 @@ import (
 	"math/big"
 	"os"
 
-	"github.com/xxx/wscan/mylib/grdp/glog"
+	"github.com/killmonday/fscanx/mylib/grdp/glog"
 
+	"github.com/killmonday/fscanx/mylib/grdp/core"
+	"github.com/killmonday/fscanx/mylib/grdp/protocol/t125/per"
 	"github.com/lunixbochs/struc"
-	"github.com/xxx/wscan/mylib/grdp/core"
-	"github.com/xxx/wscan/mylib/grdp/protocol/t125/per"
 )
 
 var t124_02_98_oid = []byte{0, 0, 20, 124, 0, 1}

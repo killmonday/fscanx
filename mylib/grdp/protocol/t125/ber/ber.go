@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"io"
 
-	"github.com/xxx/wscan/mylib/grdp/core"
+	"github.com/killmonday/fscanx/mylib/grdp/core"
 )
 
 const (

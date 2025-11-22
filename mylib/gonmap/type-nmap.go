@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/killmonday/fscanx/common"
 	"github.com/miekg/dns"
-	"github.com/xxx/wscan/common"
 )
 
 type Nmap struct {
@@ -90,41 +90,25 @@ func (n *Nmap) Scan(ip string, port int) (status Status, response *Response) {
 		}
 	}()
 
-	var probeNames ProbeList
-
-	if n.bypassAllProbePort.exist(port) == true {
-		if n.portProbeMap[port] == nil {
-			n.portProbeMap[port] = []string{}
-		}
-		probeNames = append(n.portProbeMap[port], n.allProbeMap...)
-	} else {
-		if n.portProbeMap[port] == nil {
-			n.portProbeMap[port] = []string{}
-		}
-		probeNames = append(n.allProbeMap, n.portProbeMap[port]...)
-	}
-	probeNames = append(probeNames, n.sslProbeMap...)
-	//fmt.Println("初始探针：", probeNames)
-
-	//探针去重
-	probeNames = probeNames.removeDuplicate()
+	probeNames := n.portProbeMap[port]
+	nextInx := 1
 	//fmt.Println("去重后探针：", probeNames)
+
 	firstProbe := probeNames[0]
 	status, response = n.getRealResponse(ip, port, n.single_tz_timeout, firstProbe)
-	//fmt.Println("[debug] get resp ok , status：", status, "response:", response)
 
+	//fmt.Println("[debug] [Scan] 第一探针 探测结束，get resp ok , status：", status, "response:", response)
 	if status == Closed || status == Matched {
 		return status, response
 	}
-	//fmt.Println("[debug] scan other protocol")
-	otherProbes := probeNames[1:]
-	// return n.getRealResponse(ip, port, 2*time.Second, otherProbes...)
+	otherProbes := probeNames[nextInx:]
+	//剩余探针 探测
 	return n.getRealResponse(ip, port, n.single_tz_timeout, otherProbes...)
 }
 
 func (n *Nmap) getRealResponse(host string, port int, timeout time.Duration, probes ...string) (status Status, response *Response) {
 	status, response = n.getResponseByProbes(host, port, timeout, probes...)
-	//fmt.Println("[debug] status, response: \n", status, "\n==============\n", response, "\n", response.FingerPrint)
+	//fmt.Println("[debug] status, response: \n", status, "\n==============\n", response, "\n")
 	if status != Matched {
 		return status, response
 	}
@@ -132,7 +116,6 @@ func (n *Nmap) getRealResponse(host string, port int, timeout time.Duration, pro
 		//fmt.Println("[debug] start second ssl probe ..")
 		status, response := n.getResponseBySSLSecondProbes(host, port, timeout)
 		//fmt.Println("[debug] second ssl probe done,  status:", status, ", resp:", response) //"service:", response.FingerPrint.Service
-
 		if status == Matched {
 			return Matched, response
 		}
@@ -176,39 +159,36 @@ func (n *Nmap) getResponseByHTTPS(host string, port int, timeout time.Duration) 
 }
 
 func (n *Nmap) getResponseByProbes(host string, port int, timeout time.Duration, probes ...string) (status Status, response *Response) {
-	var responseNotMatch *Response
-	//fmt.Println("[debug] all protocol:", probes)
+	//var responseNotMatch *Response
+	status = Closed
+	var currentStatu Status
+	var currentRes *Response
 	for index, requestName := range probes {
 		if n.probeUsed.exist(requestName) {
 			continue
 		}
+		//fmt.Printf("[debug] 当前探针 (%d): %s\n", index+1, requestName)
+
 		n.probeUsed = append(n.probeUsed, requestName)
 		p := n.probeNameMap[requestName]
 
-		if index >= 2 && status == Closed { //如果尝试了前两个探针依然没探测到端口开放，则退出
+		if index > 4 && status == Closed { //如果尝试了前4个探针依然没探测到端口开放，则退出
 			break
 		}
 
-		status, response = n.getResponse(host, port, p.sslports.exist(port), timeout, p)
-		//如果端口未开放，则等待10s后重新连接
-		//if b.status == Closed {
-		//	time.Sleep(time.Second * 10)
-		//	b.Load(n.getResponse(host, port, n.probeNameMap[requestName]))
-		//}
+		currentStatu, currentRes = n.getResponse(host, port, p.sslports.exist(port), timeout, p)
+		//logger.Printf("探测结果：Target:%s:%d,Probe:%s,Status:%v", host, port, requestName, currentStatu)
 
-		//logger.Printf("Target:%s:%d,Probe:%s,Status:%v", host, port, requestName, status)
-		if status == Closed || status == Matched {
-			//if status == Matched {
-			responseNotMatch = nil
+		if currentStatu == Matched {
+			status = Matched
+			response = currentRes
 			break
-		}
-		if status == NotMatched {
-			responseNotMatch = response
+		} else if currentStatu != Closed {
+			status = currentStatu
+			response = currentRes
 		}
 	}
-	if responseNotMatch != nil {
-		response = responseNotMatch
-	}
+	//fmt.Println("返回：", status, response)
 	return status, response
 }
 
@@ -225,44 +205,17 @@ func (n *Nmap) getResponse(host string, port int, tls bool, timeout time.Duratio
 			return Closed, nil
 		}
 	}
-	text, tls, err := p.scan(host, port, tls, timeout, 10240)
-	//fmt.Println("[debug] scan port done,  return text:", text, ", tls:", tls, ", err:", err)
+	text, tls, isOpen := p.scan(host, port, tls, timeout)
 
-	if err != nil {
-		if strings.Contains(err.Error(), "connect fail") || strings.Contains(err.Error(), "refused") {
-			return Closed, nil
-		}
-		if common.Socks5Proxy != "" {
-			if strings.Contains(err.Error(), "STEP1") {
-				return Closed, nil
-			}
-			if strings.Contains(err.Error(), "STEP2") {
-				return Closed, nil
-			}
-			if strings.Contains(err.Error(), "STEP3") {
-				return Closed, nil
-			}
-		}
-
-		//if p.protocol == "UDP" {
-		//	return Closed, nil
-		//}
-
-		if strings.Contains(err.Error(), "timeout") {
-			return Closed, nil
-		}
-
-		return Open, nil
+	//fmt.Println("p.scan=", text, tls, isOpen)
+	if isOpen == false {
+		return Closed, nil
 	}
-
-	//certInfo := ""
-	//if len(text) >= 10 && text[:10] == "wadbm[Cert" {
-	//	if idx := strings.Index(text, "\n"); idx != -1 {
-	//		certInfo = text[5:idx]
-	//		text = text[idx+1:]
-	//	}
-	//}
-
+	if len(text) == 0 {
+		if isOpen {
+			return Open, nil
+		}
+	}
 	response := &Response{
 		Raw:         text,
 		TLS:         tls,
@@ -271,16 +224,17 @@ func (n *Nmap) getResponse(host string, port int, tls bool, timeout time.Duratio
 	//若存在返回包，则开始做指纹匹配
 	fingerPrint := n.getFinger(text, tls, p.name)
 	response.FingerPrint = fingerPrint
-	//response.FingerPrint.Info = certInfo
+	//fmt.Println("fingerPrint=", fingerPrint.Service)
+	//如果成功匹配指纹，则直接返回指纹
 	if fingerPrint.Service == "" {
 		return NotMatched, response
 	} else {
 		return Matched, response
 	}
-	//如果成功匹配指纹，则直接返回指纹
 }
 
 func (n *Nmap) getFinger(responseRaw string, tls bool, requestName string) *FingerPrint {
+	//fmt.Println("[debug] func getFinger, requestName=", requestName)
 	data := n.convResponse(responseRaw)
 	probe := n.probeNameMap[requestName]
 
@@ -315,14 +269,13 @@ func (n *Nmap) getFinger(responseRaw string, tls bool, requestName string) *Fing
 
 func (n *Nmap) convResponse(s1 string) string {
 	//为了适配go语言的沙雕正则，只能讲二进制强行转换成UTF-8
-	//b1 := []byte(s1)
-	//var r1 []rune
-	//for _, i := range b1 {
-	//	r1 = append(r1, rune(i))
-	//}
-	//s2 := string(r1)
-	//return s2
-	return s1
+	b1 := []byte(s1)
+	var r1 []rune
+	for _, i := range b1 {
+		r1 = append(r1, rune(i))
+	}
+	s2 := string(r1)
+	return s2
 }
 
 //配置类
@@ -461,8 +414,6 @@ func (n *Nmap) sortOfRarity(list ProbeList) ProbeList {
 	for _, probeName := range list {
 		rarity := n.probeNameMap[probeName].rarity
 		raritySplice = append(raritySplice, rarity)
-		//fmt.Println(probeName, rarity)
-		// 输出： TCP_Socks5 8
 	}
 
 	return list

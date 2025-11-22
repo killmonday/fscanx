@@ -5,7 +5,7 @@ import (
 	"crypto/aes"
 	"crypto/cipher"
 	"encoding/base64"
-	"github.com/xxx/wscan/mylib/socks"
+	"github.com/killmonday/fscanx/mylib/socks"
 	"net"
 )
 

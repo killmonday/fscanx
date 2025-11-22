@@ -7,7 +7,7 @@ import (
 	"time"
 
 	_ "github.com/denisenkom/go-mssqldb"
-	"github.com/xxx/wscan/common"
+	"github.com/killmonday/fscanx/common"
 )
 
 func MssqlScan(info *common.HostInfo) (tmperr error) {

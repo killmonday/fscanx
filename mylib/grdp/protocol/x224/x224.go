@@ -6,12 +6,12 @@ import (
 	"errors"
 	"fmt"
 
-	"github.com/xxx/wscan/mylib/grdp/glog"
+	"github.com/killmonday/fscanx/mylib/grdp/glog"
 
+	"github.com/killmonday/fscanx/mylib/grdp/core"
+	"github.com/killmonday/fscanx/mylib/grdp/emission"
+	"github.com/killmonday/fscanx/mylib/grdp/protocol/tpkt"
 	"github.com/lunixbochs/struc"
-	"github.com/xxx/wscan/mylib/grdp/core"
-	"github.com/xxx/wscan/mylib/grdp/emission"
-	"github.com/xxx/wscan/mylib/grdp/protocol/tpkt"
 )
 
 // take idea from https://github.com/Madnikulin50/gordp

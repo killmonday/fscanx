@@ -3,8 +3,8 @@ package PocScan
 import (
 	"embed"
 	"fmt"
-	"github.com/xxx/wscan/PocScan/lib"
-	"github.com/xxx/wscan/common"
+	"github.com/killmonday/fscanx/PocScan/lib"
+	"github.com/killmonday/fscanx/common"
 	"net/http"
 	"os"
 	"path/filepath"

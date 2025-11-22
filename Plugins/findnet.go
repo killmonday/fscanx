@@ -8,7 +8,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xxx/wscan/common"
+	"github.com/killmonday/fscanx/common"
 )
 
 var (
@@ -24,7 +24,7 @@ func Findnet(info *common.HostInfo) error {
 
 func FindnetScan(info *common.HostInfo) error {
 	realhost := fmt.Sprintf("%s:%v", info.Host, 135)
-	conn, err := common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(common.TcpTimeout)*time.Second)
+	conn, err := common.GetConn("tcp", realhost, time.Duration(common.TcpTimeout)*time.Second)
 	if err != nil {
 		return err
 	}

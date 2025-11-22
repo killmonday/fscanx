@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/killmonday/fscanx/common"
 	_ "github.com/sijms/go-ora/v2"
-	"github.com/xxx/wscan/common"
 )
 
 func OracleScan(info *common.HostInfo) (tmperr error) {

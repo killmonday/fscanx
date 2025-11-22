@@ -8,12 +8,12 @@ import (
 	"time"
 
 	"github.com/hirochachacha/go-smb2"
-	"github.com/xxx/wscan/common"
+	"github.com/killmonday/fscanx/common"
 )
 
 func SmbScan(info *common.HostInfo) (tmperr error) {
 	if common.DoBrute == false {
-		conn, err := common.WrapperTcpWithTimeout("tcp", info.Host+":"+info.Ports, time.Duration(common.TcpTimeout*2)*time.Second)
+		conn, err := common.GetConn("tcp", info.Host+":"+info.Ports, time.Duration(common.TcpTimeout*2)*time.Second)
 		if err != nil {
 			return
 		}
@@ -137,7 +137,7 @@ func SmblConn(info *common.HostInfo, user string, pass string, signal chan struc
 	//signal <- struct{}{}
 	//return flag, err
 	defer func() { signal <- struct{}{} }()
-	conn, err := common.WrapperTcpWithTimeout("tcp", info.Host+":"+info.Ports, time.Duration(common.TcpTimeout*2)*time.Second)
+	conn, err := common.GetConn("tcp", info.Host+":"+info.Ports, time.Duration(common.TcpTimeout*2)*time.Second)
 	if err != nil {
 		return
 	}

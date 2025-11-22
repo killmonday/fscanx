@@ -6,7 +6,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/xxx/wscan/mylib/grdp/protocol/rfb"
+	"github.com/killmonday/fscanx/mylib/grdp/protocol/rfb"
 )
 
 type VncClient struct {

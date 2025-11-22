@@ -2,10 +2,10 @@ package Plugins
 
 import (
 	"fmt"
-	"github.com/xxx/wscan/common"
-	"github.com/xxx/wscan/mylib/grdp/glog"
-	"github.com/xxx/wscan/mylib/grdp/login"
-	"github.com/xxx/wscan/mylib/grdp/protocol/x224"
+	"github.com/killmonday/fscanx/common"
+	"github.com/killmonday/fscanx/mylib/grdp/glog"
+	"github.com/killmonday/fscanx/mylib/grdp/login"
+	"github.com/killmonday/fscanx/mylib/grdp/protocol/x224"
 	"strconv"
 	"strings"
 	"sync"
@@ -59,7 +59,7 @@ func RdpScan(info *common.HostInfo) (tmperr error) {
 		if OsVerion == "" && netBiosComputerName == "" && FQDN == "" && netBiosDomainName == "" && DNSDomainName == "" {
 			return
 		}
-		osInfoStr := fmt.Sprintf("[+] get os info by rdpscan: %s, Build:Windows %s, OS:(%s), Hostname:%s, DNSDomainName:%s, FQDN:%s, NetBIOSDomainName:%s, DnsdDomainName:%s", host, ProductVersion, OsVerion, netBiosComputerName, netBiosComputerName, FQDN, netBiosDomainName, DNSDomainName)
+		osInfoStr := fmt.Sprintf("[+] get os info by rdpscan: %s, Build:Windows %s, OS:(%s), Hostname:%s, DNSDomainName:%s, FQDN:%s, NetBIOSDomainName:%s, DnsdDomainName:%s\n\n", host, ProductVersion, OsVerion, netBiosComputerName, netBiosComputerName, FQDN, netBiosDomainName, DNSDomainName)
 		common.LogSuccess(osInfoStr)
 	}
 

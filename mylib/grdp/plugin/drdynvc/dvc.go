@@ -5,9 +5,9 @@ import (
 	"encoding/hex"
 	"io"
 
-	"github.com/xxx/wscan/mylib/grdp/core"
-	"github.com/xxx/wscan/mylib/grdp/glog"
-	"github.com/xxx/wscan/mylib/grdp/plugin"
+	"github.com/killmonday/fscanx/mylib/grdp/core"
+	"github.com/killmonday/fscanx/mylib/grdp/glog"
+	"github.com/killmonday/fscanx/mylib/grdp/plugin"
 )
 
 const (

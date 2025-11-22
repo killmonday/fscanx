@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"encoding/hex"
 	"fmt"
-	"github.com/xxx/wscan/common"
+	"github.com/killmonday/fscanx/common"
 	"io"
 	"io/ioutil"
 	"net"

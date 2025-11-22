@@ -5,9 +5,9 @@ import (
 	"log"
 	"os"
 
-	"github.com/xxx/wscan/mylib/grdp/glog"
-	"github.com/xxx/wscan/mylib/grdp/protocol/pdu"
-	"github.com/xxx/wscan/mylib/grdp/protocol/rfb"
+	"github.com/killmonday/fscanx/mylib/grdp/glog"
+	"github.com/killmonday/fscanx/mylib/grdp/protocol/pdu"
+	"github.com/killmonday/fscanx/mylib/grdp/protocol/rfb"
 )
 
 const (

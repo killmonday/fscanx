@@ -5,12 +5,12 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xxx/wscan/common"
+	"github.com/killmonday/fscanx/common"
 )
 
 func MemcachedScan(info *common.HostInfo) (err error) {
 	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
-	client, err := common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(common.TcpTimeout)*time.Second)
+	client, err := common.GetConn("tcp", realhost, time.Duration(common.TcpTimeout)*time.Second)
 	defer func() {
 		if client != nil {
 			client.Close()

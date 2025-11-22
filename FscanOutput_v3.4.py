@@ -62,37 +62,30 @@ def open_port_export(datalist):
         unique_dic = {}
 
         for i in datalist:
-            p = re.findall(r'^\d[^\s]+ open.*?$', i)
+            pattern = r'Port open\s+(\d+\.\d+\.\d+\.\d+):(\d+)\s*(\S*)'
+            match = re.search(pattern, i)
 
-            if len(p) != 0:
-                p1 = list(p)
-                for u in p1:
-                    ip = re.findall(r"\d+\.\d+\.\d+\.\d+", u)
-                    port = re.findall("(?<=:)\d+" , u)
-                    protocol = re.findall(r"open (\S+)$" , u)
-                    if len(protocol) > 0:
-                        protocol = protocol[0]
-                    else:
-                        protocol = ''
-
-                    try:
-                        ip_c = ".".join(ip[0].split('.')[:3])
-                        if unique_dic.get(ip_c):
-                            if unique_dic[ip_c].get(ip[0]):
-                                unique_dic[ip_c].get(ip[0])[f'{ip[0]}_{port[0]}'] = [ ip[0] , port[0] , protocol]
-                            else:
-                                unique_dic[ip_c][ip[0]] = {
-                                    f'{ip[0]}_{port[0]}' : [ ip[0] , port[0] , protocol]
-                                }
+            if match:
+                ip = match.group(1)
+                port = match.group(2)
+                protocol = match.group(3).strip() if match.group(3) else ''
+                try:
+                    ip_c = ".".join(ip.split('.')[:3])
+                    if unique_dic.get(ip_c):
+                        if unique_dic[ip_c].get(ip):
+                            unique_dic[ip_c].get(ip)[f'{ip}_{port}'] = [ ip , port , protocol]
                         else:
-                            unique_dic[ip_c] = {
-                                ip[0] : {
-                                    f'{ip[0]}_{port[0]}' : [ ip[0] , port[0] , protocol]
-                                }
-                                
+                            unique_dic[ip_c][ip] = {
+                                f'{ip}_{port}' : [ ip , port , protocol]
                             }
-                    except Exception as e:
-                        traceback.print_exc()
+                    else:
+                        unique_dic[ip_c] = {
+                            ip[0] : {
+                                f'{ip}_{port}' : [ ip , port, protocol]
+                            }
+                        }
+                except Exception as e:
+                    traceback.print_exc()
             else:
                 try:
                     p_url = re.findall(r"http[^\s]+", i)
@@ -694,7 +687,7 @@ if __name__ == "__main__":
     print("[+++]Poc可利用漏洞共计：%s 个" % (wt2.max_row-1))
     wt3 = New_fscanxlsx['OsList']
     print("[+++]成功识别操作系统共计：%s 个" % (wt3.max_row-1))
-    wt4 = New_fscanxlsx['Title']
+    wt4 = New_fscanxlsx['Product']
     print("[+++]成功探测Web服务共计：%s 条" % (wt4.max_row-1))
     wt5 = New_fscanxlsx['WeakPasswd']
     print("[+++]成功破解账号密码共计：%s 个" % (wt5.max_row-1))

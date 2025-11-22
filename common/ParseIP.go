@@ -28,18 +28,19 @@ var ParseIPErr = errors.New(" host parsing error\n" +
 	"192.168.1.1-192.168.255.255\n" +
 	"192.168.1.1-255")
 
-func ParseIPsByChanMaster(host string) (targetInputCh chan string, err error) {
-	targetInputCh = make(chan string, PortScanThreadNum+int(Bucket_limit))
+func ParseIPsByChanMaster(host string, ipOnly bool) (targetInputCh chan string, err error) {
+	targetInputCh = make(chan string)
 
 	if strings.Contains(host, ":") {
 		// example: 192.168.0.0/16:80
 		hostport := strings.Split(host, ":")
 		if len(hostport) == 2 {
 			host = hostport[0]
-			go ParseIPListByChan(host, targetInputCh)
+			go ParseIPListByChan(host, targetInputCh, ipOnly)
 		}
 	} else {
-		go ParseIPListByChan(host, targetInputCh)
+		// 不含端口的
+		go ParseIPListByChan(host, targetInputCh, ipOnly)
 	}
 	return
 }
@@ -106,15 +107,16 @@ func ParseIPList(targetsInput string) (hosts []string) {
 	return hosts
 }
 
-func ParseIPListByChan(targetsInput string, returnCh chan<- string) {
+func ParseIPListByChan(targetsInput string, returnCh chan<- string, ipOnly bool) {
 	defer close(returnCh)
 	if strings.Contains(targetsInput, ",") {
 		targetSlice := strings.Split(targetsInput, ",")
 		for _, targetStr := range targetSlice {
-			parseSingleIPWithChan(targetStr, returnCh)
+			parseSingleIPWithChan(targetStr, returnCh, ipOnly)
 		}
 	} else {
-		parseSingleIPWithChan(targetsInput, returnCh)
+		// 单个输入，不含逗号拼接
+		parseSingleIPWithChan(targetsInput, returnCh, ipOnly)
 	}
 }
 
@@ -157,16 +159,16 @@ func parseIP(ip string) []string {
 	}
 }
 
-func parseSingleIPWithChan(hostStr string, returnCh chan<- string) {
+func parseSingleIPWithChan(hostStr string, returnCh chan<- string, ipOnly bool) {
 	switch {
 	case hostStr == "192":
-		parseSingleIPWithChan("192.168.0.0/8", returnCh)
+		parseSingleIPWithChan("192.168.0.0/8", returnCh, ipOnly)
 		return
 	case hostStr == "172":
-		parseSingleIPWithChan("172.16.0.0/12", returnCh)
+		parseSingleIPWithChan("172.16.0.0/12", returnCh, ipOnly)
 		return
 	case hostStr == "10":
-		parseSingleIPWithChan("10.0.0.0/8", returnCh)
+		parseSingleIPWithChan("10.0.0.0/8", returnCh, ipOnly)
 		return
 	//// 扫描/8时,只扫网关和随机IP,避免扫描过多IP
 	//case strings.HasSuffix(hostStr, "/8"):
@@ -174,7 +176,7 @@ func parseSingleIPWithChan(hostStr string, returnCh chan<- string) {
 	//	return
 	//解析 /24 /16 /8 /xxx 等
 	case strings.Contains(hostStr, "/"):
-		parseCidr2RangeByChan(hostStr, returnCh)
+		parseCidr2RangeByChan(hostStr, returnCh, ipOnly)
 		return
 	//可能是域名,用lookup获取ip
 	case Reg_domain.MatchString(hostStr):
@@ -182,16 +184,29 @@ func parseSingleIPWithChan(hostStr string, returnCh chan<- string) {
 		if err != nil {
 			return
 		}
-		for _, addr := range addrs {
-			if RegIP.MatchString(addr) {
-				returnCh <- addr
-				return
+		if ipOnly {
+			for _, addr := range addrs {
+				if RegIP.MatchString(addr) {
+					returnCh <- addr
+					return
+				}
+			}
+		} else {
+			needProbePorts := ParsePort(PortsInput)
+			for _, p := range needProbePorts {
+				for _, addr := range addrs {
+					if RegIP.MatchString(addr) {
+						returnCh <- fmt.Sprintf("%s:%d", addr, p)
+						return
+					}
+				}
 			}
 		}
+
 		return
 	//192.168.1.1-192.168.1.100 或 192.168.111.1-255
 	case strings.Contains(hostStr, "-"):
-		IpRange2IpsByChan(hostStr, returnCh)
+		IpRange2IpsByChan(hostStr, returnCh, ipOnly)
 		return
 	//处理单个ip
 	default:
@@ -199,7 +214,14 @@ func parseSingleIPWithChan(hostStr string, returnCh chan<- string) {
 		if testIP == nil {
 			return
 		}
-		returnCh <- hostStr
+		if ipOnly {
+			returnCh <- hostStr
+		} else {
+			needProbePorts := ParsePort(PortsInput)
+			for _, p := range needProbePorts {
+				returnCh <- fmt.Sprintf("%s:%d", hostStr, p)
+			}
+		}
 		return
 	}
 }
@@ -214,13 +236,13 @@ func parseCidr2Range(host string) (hosts []string) {
 	return
 }
 
-func parseCidr2RangeByChan(host string, targetInputCh chan<- string) {
+func parseCidr2RangeByChan(host string, targetInputCh chan<- string, ipOnly bool) {
 	// host = x.x.x.x/xx
 	_, ipNet, err := net.ParseCIDR(host)
 	if err != nil {
 		return
 	}
-	IpRange2IpsByChan(IPRange(ipNet), targetInputCh)
+	IpRange2IpsByChan(IPRange(ipNet), targetInputCh, ipOnly)
 	return
 }
 
@@ -233,6 +255,9 @@ func IpRange2Ips(ip string) []string {
 	testIP := net.ParseIP(IPRange[0])
 	var AllIP []string
 	if len(IPRange[1]) < 4 {
+		if IPRange[1] == "255" {
+			IPRange[1] = "254"
+		}
 		Range, err := strconv.Atoi(IPRange[1])
 		if testIP == nil || Range > 255 || err != nil {
 			return nil
@@ -253,6 +278,9 @@ func IpRange2Ips(ip string) []string {
 		if len(SplitIP1) != 4 || len(SplitIP2) != 4 {
 			return nil
 		}
+		if SplitIP2[3] == "255" {
+			SplitIP2[3] = "254"
+		}
 		start, end := [4]int{}, [4]int{}
 		for i := 0; i < 4; i++ {
 			ip1, err1 := strconv.Atoi(SplitIP1[i])
@@ -272,51 +300,158 @@ func IpRange2Ips(ip string) []string {
 	return AllIP
 }
 
-func IpRange2IpsByChan(ip string, returnCh chan<- string) {
+//func IpRange2IpsByChan(ip string, returnCh chan<- string) {
+//	ipRange := strings.Split(ip, "-") //192.168.1.1-255
+//	testIP := net.ParseIP(ipRange[0])
+//	if len(ipRange[1]) < 4 {
+//		//192.168.1.1-255
+//		Range, err := strconv.Atoi(ipRange[1])
+//		if testIP == nil || Range > 255 || err != nil {
+//			return
+//		}
+//		SplitIP := strings.Split(ipRange[0], ".")
+//		ip1, err1 := strconv.Atoi(SplitIP[3])
+//		ip2, err2 := strconv.Atoi(ipRange[1])
+//		PrefixIP := strings.Join(SplitIP[0:3], ".")
+//		if ip1 > ip2 || err1 != nil || err2 != nil {
+//			return
+//		}
+//		for i := ip1; i <= ip2; i++ {
+//			returnCh <- PrefixIP + "." + strconv.Itoa(i)
+//		}
+//	} else {
+//		//192.168.1.1-192.168.1.255
+//		SplitIP1 := strings.Split(ipRange[0], ".")
+//		SplitIP2 := strings.Split(ipRange[1], ".")
+//		if len(SplitIP1) != 4 || len(SplitIP2) != 4 {
+//			return
+//		}
+//		start, end := [4]int{}, [4]int{}
+//		for i := 0; i < 4; i++ {
+//			ip1, err1 := strconv.Atoi(SplitIP1[i])
+//			ip2, err2 := strconv.Atoi(SplitIP2[i])
+//			if ip1 > ip2 || err1 != nil || err2 != nil {
+//				return
+//			}
+//			start[i], end[i] = ip1, ip2
+//		}
+//
+//		startNum := start[0]<<24 | start[1]<<16 | start[2]<<8 | start[3]
+//		endNum := end[0]<<24 | end[1]<<16 | end[2]<<8 | end[3]
+//
+//		for num := startNum; num <= endNum; num++ {
+//			_ip := fmt.Sprintf("%d.%d.%d.%d", (num>>24)&0xff, (num>>16)&0xff, (num>>8)&0xff, (num)&0xff)
+//			//_ip := strconv.Itoa((num>>24)&0xff) + "." + strconv.Itoa((num>>16)&0xff) + "." + strconv.Itoa((num>>8)&0xff) + "." + strconv.Itoa((num)&0xff)
+//			returnCh <- _ip
+//		}
+//	}
+//}
+
+func IpRange2IpsByChan(ip string, returnCh chan<- string, ipOnly bool) {
 	ipRange := strings.Split(ip, "-") //192.168.1.1-255
 	testIP := net.ParseIP(ipRange[0])
-	if len(ipRange[1]) < 4 {
-		//192.168.1.1-255
-		Range, err := strconv.Atoi(ipRange[1])
-		if testIP == nil || Range > 255 || err != nil {
-			return
-		}
-		SplitIP := strings.Split(ipRange[0], ".")
-		ip1, err1 := strconv.Atoi(SplitIP[3])
-		ip2, err2 := strconv.Atoi(ipRange[1])
-		PrefixIP := strings.Join(SplitIP[0:3], ".")
-		if ip1 > ip2 || err1 != nil || err2 != nil {
-			return
-		}
-		for i := ip1; i <= ip2; i++ {
-			returnCh <- PrefixIP + "." + strconv.Itoa(i)
-		}
-	} else {
-		//192.168.1.1-192.168.1.255
-		SplitIP1 := strings.Split(ipRange[0], ".")
-		SplitIP2 := strings.Split(ipRange[1], ".")
-		if len(SplitIP1) != 4 || len(SplitIP2) != 4 {
-			return
-		}
-		start, end := [4]int{}, [4]int{}
-		for i := 0; i < 4; i++ {
-			ip1, err1 := strconv.Atoi(SplitIP1[i])
-			ip2, err2 := strconv.Atoi(SplitIP2[i])
+	if ipOnly {
+		if len(ipRange[1]) < 4 {
+			//处理192.168.1.1-255类型
+			if ipRange[1] == "255" {
+				ipRange[1] = "254"
+			}
+			Range, err := strconv.Atoi(ipRange[1])
+			if testIP == nil || Range > 255 || err != nil {
+				return
+			}
+			SplitIP := strings.Split(ipRange[0], ".")
+			ip1, err1 := strconv.Atoi(SplitIP[3])
+			ip2, err2 := strconv.Atoi(ipRange[1])
+			PrefixIP := strings.Join(SplitIP[0:3], ".")
 			if ip1 > ip2 || err1 != nil || err2 != nil {
 				return
 			}
-			start[i], end[i] = ip1, ip2
+			for i := ip1; i <= ip2; i++ {
+				_host := PrefixIP + "." + strconv.Itoa(i)
+				returnCh <- _host
+			}
+		} else {
+			//处理192.168.1.1-192.168.1.255类型
+			SplitIP1 := strings.Split(ipRange[0], ".")
+			SplitIP2 := strings.Split(ipRange[1], ".")
+			if len(SplitIP1) != 4 || len(SplitIP2) != 4 {
+				return
+			}
+			if SplitIP2[3] == "255" {
+				SplitIP2[3] = "254"
+			}
+
+			start, end := [4]int{}, [4]int{}
+			for i := 0; i < 4; i++ {
+				ip1, err1 := strconv.Atoi(SplitIP1[i])
+				ip2, err2 := strconv.Atoi(SplitIP2[i])
+				if ip1 > ip2 || err1 != nil || err2 != nil {
+					return
+				}
+				start[i], end[i] = ip1, ip2
+			}
+			startNum := start[0]<<24 | start[1]<<16 | start[2]<<8 | start[3]
+			endNum := end[0]<<24 | end[1]<<16 | end[2]<<8 | end[3]
+
+			for num := startNum; num <= endNum; num++ {
+				_ip := fmt.Sprintf("%d.%d.%d.%d", (num>>24)&0xff, (num>>16)&0xff, (num>>8)&0xff, (num)&0xff)
+				returnCh <- _ip
+			}
 		}
+	} else {
+		needProbePorts := ParsePort(PortsInput)
+		for _, probePort := range needProbePorts {
+			if len(ipRange[1]) < 4 {
+				//192.168.1.1-255
+				Range, err := strconv.Atoi(ipRange[1])
+				if testIP == nil || Range > 255 || err != nil {
+					return
+				}
+				SplitIP := strings.Split(ipRange[0], ".")
+				ip1, err1 := strconv.Atoi(SplitIP[3])
+				ip2, err2 := strconv.Atoi(ipRange[1])
+				PrefixIP := strings.Join(SplitIP[0:3], ".")
+				if ip1 > ip2 || err1 != nil || err2 != nil {
+					return
+				}
+				for i := ip1; i <= ip2; i++ {
+					_host := fmt.Sprintf("%s.%d:%d", PrefixIP, i, probePort)
+					returnCh <- _host
+				}
+			} else {
+				//192.168.1.1-192.168.1.255
+				SplitIP1 := strings.Split(ipRange[0], ".")
+				SplitIP2 := strings.Split(ipRange[1], ".")
+				if len(SplitIP1) != 4 || len(SplitIP2) != 4 {
+					return
+				}
+				start, end := [4]int{}, [4]int{}
+				for i := 0; i < 4; i++ {
+					ip1, err1 := strconv.Atoi(SplitIP1[i])
+					ip2, err2 := strconv.Atoi(SplitIP2[i])
+					if ip1 > ip2 || err1 != nil || err2 != nil {
+						return
+					}
+					start[i], end[i] = ip1, ip2
+				}
 
-		startNum := start[0]<<24 | start[1]<<16 | start[2]<<8 | start[3]
-		endNum := end[0]<<24 | end[1]<<16 | end[2]<<8 | end[3]
+				startNum := start[0]<<24 | start[1]<<16 | start[2]<<8 | start[3]
+				endNum := end[0]<<24 | end[1]<<16 | end[2]<<8 | end[3]
 
-		for num := startNum; num <= endNum; num++ {
-			_ip := fmt.Sprintf("%d.%d.%d.%d", (num>>24)&0xff, (num>>16)&0xff, (num>>8)&0xff, (num)&0xff)
-			//_ip := strconv.Itoa((num>>24)&0xff) + "." + strconv.Itoa((num>>16)&0xff) + "." + strconv.Itoa((num>>8)&0xff) + "." + strconv.Itoa((num)&0xff)
-			returnCh <- _ip
+				for num := startNum; num <= endNum; num++ {
+					//_ip := strconv.Itoa((num>>24)&0xff) + "." + strconv.Itoa((num>>16)&0xff) + "." + strconv.Itoa((num>>8)&0xff) + "." + strconv.Itoa((num)&0xff)
+					_ip := fmt.Sprintf("%d.%d.%d.%d:%d", (num>>24)&0xff, (num>>16)&0xff, (num>>8)&0xff, (num)&0xff, probePort)
+
+					returnCh <- _ip
+
+					//_host := "127.0.0.1"
+					//returnCh <- _host
+				}
+			}
 		}
 	}
+
 }
 
 // 获取起始IP、结束IP
@@ -463,6 +598,25 @@ func RemoveDuplicate(old []string) []string {
 	return result
 }
 
+//func ParseIpA(ip string) []string {
+//	realIP := ip[:len(ip)-2]
+//	testIP := net.ParseIP(realIP)
+//	if testIP == nil {
+//		return nil
+//	}
+//
+//	ipA := strings.Split(ip, ".")[0]
+//	var AllIP []string
+//	for b := 0; b <= 255; b++ {
+//		for c := 0; c <= 255; c++ {
+//			for d := 0; d <= 254; d++ {
+//				AllIP = append(AllIP, fmt.Sprintf("%s.%d.%d.%d", ipA, b, c, d))
+//			}
+//		}
+//	}
+//	return AllIP
+//}
+
 func ParseIpAWithGuess(ip string) []string {
 	realIP := ip[:len(ip)-2]
 	testIP := net.ParseIP(realIP)
@@ -484,7 +638,7 @@ func ParseIpAWithGuess(ip string) []string {
 	return AllIP
 }
 
-func ParseIpAWithGuessByChan(ip string, targetInputCh chan<- string) {
+func ParseIpAByChan(ip string, targetInputCh chan<- string) {
 	realIP := ip[:len(ip)-2]
 	testIP := net.ParseIP(realIP)
 
@@ -492,13 +646,12 @@ func ParseIpAWithGuessByChan(ip string, targetInputCh chan<- string) {
 		return
 	}
 
-	IPrange := strings.Split(ip, ".")[0]
-	for a := 0; a <= 255; a++ {
-		for b := 0; b <= 255; b++ {
-			targetInputCh <- fmt.Sprintf("%s.%d.%d.%d", IPrange, a, b, 1)
-			targetInputCh <- fmt.Sprintf("%s.%d.%d.%d", IPrange, a, b, 1)
-			targetInputCh <- fmt.Sprintf("%s.%d.%d.%d", IPrange, a, b, 253)
-			targetInputCh <- fmt.Sprintf("%s.%d.%d.%d", IPrange, a, b, 254)
+	ipA := strings.Split(ip, ".")[0]
+	for b := 0; b <= 255; b++ {
+		for c := 0; c <= 255; c++ {
+			for d := 0; d <= 254; d++ {
+				targetInputCh <- fmt.Sprintf("%s.%d.%d.%d", ipA, b, c, d)
+			}
 		}
 	}
 }

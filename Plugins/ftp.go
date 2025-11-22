@@ -7,9 +7,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xxx/wscan/common"
+	"github.com/killmonday/fscanx/common"
 	//"github.com/jlaffaye/ftp"
-	"github.com/xxx/wscan/mylib/ftp"
+	"github.com/killmonday/fscanx/mylib/ftp"
 )
 
 func checkAnouymousLogin(info *common.HostInfo) (tmperr error) {

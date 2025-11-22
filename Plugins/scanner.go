@@ -3,10 +3,11 @@ package Plugins
 import (
 	"bufio"
 	"fmt"
+	"github.com/killmonday/fscanx/PocScan/lib"
+	"github.com/killmonday/fscanx/common"
+	"github.com/killmonday/fscanx/mylib/gonmap"
 	"github.com/remeh/sizedwaitgroup"
-	"github.com/xxx/wscan/PocScan/lib"
-	"github.com/xxx/wscan/common"
-	"github.com/xxx/wscan/mylib/gonmap"
+	"net"
 	"os"
 	"reflect"
 	"runtime"
@@ -178,78 +179,29 @@ func AutoScanBigCidr(info common.HostInfo) []string {
 		return nil
 	}
 	if doTcp {
+		timeout := time.Duration(common.AutoScanTcpTimeout) * time.Second
 		for _, ip := range ipNeedProbe {
 			// 依次扫描指定端口
 			for _, port := range probePortList {
 				swg.Add()
-				//go func(ip string, port string) {
-				//	defer func() {
-				//		swg.Done()
-				//		if r := recover(); r != nil {
-				//			//panicValue := r
-				//			//stack := debug.Stack() // []byte，包含堆栈信息
-				//			//file, err := os.OpenFile("panic.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-				//			//if err != nil {
-				//			//	// 如果连日志文件都无法打开，打印到 stderr
-				//			//	fmt.Fprintf(os.Stderr, "无法打开 panic 日志文件: %v\n", err)
-				//			//	fmt.Fprintf(os.Stderr, "Panic: %v\n", panicValue)
-				//			//	fmt.Fprintf(os.Stderr, "Stack Trace:\n%s\n", stack)
-				//			//	return
-				//			//}
-				//			//defer file.Close()
-				//			//errorMsg := fmt.Sprintf("[PANIC] Recovered from: %v\nStack Trace:\n%s\n", panicValue, string(stack))
-				//			//if _, err := file.WriteString(errorMsg); err != nil {
-				//			//	fmt.Fprintf(os.Stderr, "无法写入 panic 日志: %v\n", err)
-				//			//}
-				//		}
-				//	}()
-				//	addrStr := fmt.Sprintf("%s:%s", ip, port)
-				//	conn, err := common.WrapperTcpWithTimeout("tcp4", addrStr, 3*time.Second)
-				//	if conn != nil {
-				//		conn.Close()
-				//	}
-				//	if err == nil {
-				//		index := strings.LastIndex(ip, ".")
-				//		if index != -1 {
-				//			ipc := ip[:index]
-				//			num, ok := AliveIpCPrefix.Load(ipc)
-				//			if ok {
-				//				AliveIpCPrefix.Store(ipc, num.(uint16)+1)
-				//			} else {
-				//				AliveIpCPrefix.Store(ipc, uint16(1))
-				//			}
-				//		}
-				//		if common.Silent == false {
-				//			common.LogSuccess("(tcp) Target %-15s is alive", ip)
-				//		}
-				//	}
-				//}(ip, port)
-
 				ip := ip
 				port := port
 				common.PoolScan.Submit(func() {
 					defer func() {
 						swg.Done()
 						if r := recover(); r != nil {
-							//panicValue := r
-							//stack := debug.Stack() // []byte，包含堆栈信息
-							//file, err := os.OpenFile("panic.log", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
-							//if err != nil {
-							//	// 如果连日志文件都无法打开，打印到 stderr
-							//	fmt.Fprintf(os.Stderr, "无法打开 panic 日志文件: %v\n", err)
-							//	fmt.Fprintf(os.Stderr, "Panic: %v\n", panicValue)
-							//	fmt.Fprintf(os.Stderr, "Stack Trace:\n%s\n", stack)
-							//	return
-							//}
-							//defer file.Close()
-							//errorMsg := fmt.Sprintf("[PANIC] Recovered from: %v\nStack Trace:\n%s\n", panicValue, string(stack))
-							//if _, err := file.WriteString(errorMsg); err != nil {
-							//	fmt.Fprintf(os.Stderr, "无法写入 panic 日志: %v\n", err)
-							//}
+							//debug.PrintStack()
 						}
 					}()
 					addrStr := fmt.Sprintf("%s:%s", ip, port)
-					conn, err := common.WrapperTcpWithTimeout("tcp4", addrStr, 3*time.Second)
+					conn, err := common.GetConn("tcp4", addrStr, timeout)
+					// 设置套接字延迟关闭选项，当调用 conn.Close() 时，立即关闭连接，不等待任何未发送或未确认的数据
+					if _, ok := conn.(*net.TCPConn); ok {
+						err = conn.(*net.TCPConn).SetLinger(0)
+						if err != nil {
+							//fmt.Println("set socket delay close fail:", err)
+						}
+					}
 					if conn != nil {
 						conn.Close()
 					}
@@ -262,11 +214,12 @@ func AutoScanBigCidr(info common.HostInfo) []string {
 								AliveIpCPrefix.Store(ipc, num.(uint16)+1)
 							} else {
 								AliveIpCPrefix.Store(ipc, uint16(1))
+								common.LogSuccess("[*] alive net\t%s.0/24", ipc)
 							}
 						}
-						if common.Silent == false {
-							common.LogSuccess("(tcp) Target %-15s is alive", ip)
-						}
+						//if common.Silent == false {
+						//	common.LogSuccess("(tcp) Target %-15s is alive", ip)
+						//}
 					}
 				})
 
@@ -276,10 +229,11 @@ func AutoScanBigCidr(info common.HostInfo) []string {
 	}
 	if doIcmp {
 		IcmpTaskWorker(ipNeedProbe, common.UsePingExe)
+		common.LogSuccess("[*] icmp/tcp check done.\n\n")
 	}
 
 	aliveCNets := CountAliveIPCidrWithGlobal()
-	common.LogSuccess("[*] Auto pre scan done!\n[*] start scan all alive c net...\n############################################")
+	common.LogSuccess("[*] Auto pre scan done! start scan alive c net.\n############################################")
 	return aliveCNets
 }
 
@@ -292,8 +246,9 @@ func Scan(inputInfo common.HostInfo) {
 	}()
 	var wg = sync.WaitGroup{}
 	var alivePortResList []*PortScanRes
-	web := strconv.Itoa(common.PluginPortMap["web"])         //只是个标志 1000003
-	ms17010 := strconv.Itoa(common.PluginPortMap["ms17010"]) //只是个标志 1000001
+	isPrintIcmp := true
+	//web := strconv.Itoa(common.PluginPortMap["web"])         //只是个标志 1000003
+	//ms17010 := strconv.Itoa(common.PluginPortMap["ms17010"]) //只是个标志 1000001
 	nowStr := time.Now().Format("2006-01-02 15:04:05")
 	common.LogSuccess(fmt.Sprintf("===================new task===================\n%s\nargs: %s\ntarget: %s", nowStr, strings.Join(os.Args[1:], " "), inputInfo.Host))
 	fmt.Println("start infoscan")
@@ -306,10 +261,11 @@ func Scan(inputInfo common.HostInfo) {
 			goto ScanIpContainPort
 		}
 		inputInfo.Host = strings.Join(aliveIpCNets, ",")
-		common.LogSuccess("[*] 存活C段所有IP做icmp扫描，C段总数：%d", len(aliveIpCNets))
 		if common.NoPing == false {
-			//如果下面还需要ping扫描，清空
-			common.BloomFilter = common.BloomFilter.ClearAll()
+			//如果下面还需要ping扫描，清空布隆过滤器
+			common.BloomFilter.ClearAll()
+			common.LogSuccess("[*] 开始icmp扫描存活C段的所有IP，C段总数：%d\n......\n", len(aliveIpCNets))
+			isPrintIcmp = false
 		} else {
 			common.BloomFilter = nil
 		}
@@ -318,36 +274,7 @@ func Scan(inputInfo common.HostInfo) {
 
 	// 1.1 icmp扫描+端口探测和协议识别
 	if common.NoPing == false {
-		////解析输入目标。icmp的监听扫描方式需要记录扫描过的ip来确认哪些属于目标，否则会打印出目标范围外的其他ip。所以这里只能解析所有ip并传入进去，另外
-		//targetList, err := common.ParseIP(inputInfo.Host, common.HostFile)
-		//if len(targetList) == 0 {
-		//	goto ScanIpContainPort
-		//}
-		//if err != nil {
-		//	fmt.Println("[-] parse ip error:", err)
-		//	return
-		//}
-		//aliveIPList := IcmpTaskWorker(targetList, common.UsePingExe) //阻塞
-		//common.LogSuccess("[*] 存活C段的icmp扫描结束，统计如下")
-		//CountAliveIPCidrWithGlobal()
-		//common.LogSuccess("[*] Icmp alive hosts len is: %d\n############################################\n[*] 端口扫描", len(aliveIPList))
-		//if common.Scantype == "icmp" {
-		//	common.LogWG.Wait()
-		//	return
-		//}
-		//
-		//// 做nmap扫描/端口存活/poc扫描。PortScanBatchTask里具体做哪一种扫描取决于 -nmap、-poc选项是否设置
-		//alivePortResList = PortScanBatchTask(aliveIPList, common.PortsInput, common.TcpTimeout)
-		//common.LogSuccess("\n[*] alive ports len is: %d\n", len(alivePortResList)) // 这是存活的总ip:port数，其实就是存活资产总数
-		//if common.Scantype == "portscan" {
-		//	common.LogWG.Wait()
-		//	return
-		//}
-
-		///////////////////// 测试新 icmp+portscan
-		// 解析输入目标。icmp的监听扫描方式需要记录扫描过的ip来确认哪些属于目标，否则会打印出目标范围外的其他ip。所以这里只能解析所有ip并传入进去，另外
-
-		targetInputCh, err := common.ParseIPsByChanMaster(inputInfo.Host)
+		targetInputCh, err := common.ParseIPsByChanMaster(inputInfo.Host, true)
 		if err != nil {
 			fmt.Println("parse ip err:", err)
 			return
@@ -363,16 +290,16 @@ func Scan(inputInfo common.HostInfo) {
 			}
 			icmpWg.Done()
 		}()
-		IcmpTaskWorkerByChan(targetInputCh, aliveIpChan, common.UsePingExe) //阻塞
+		IcmpTaskWorkerByChan(targetInputCh, aliveIpChan, common.UsePingExe, isPrintIcmp) //阻塞
 		icmpWg.Wait()
-
+		fmt.Println(aliveIPList)
 		if len(aliveIPList) == 0 {
 			goto ScanIpContainPort
 		}
 
-		common.LogSuccess("[*] 存活C段的icmp扫描结束，统计如下")
+		common.LogSuccess("\n[*] 所有存活C段的icmp扫描结束，统计如下")
 		CountAliveIPCidrWithGlobal()
-		common.LogSuccess("[*] Icmp alive hosts len is: %d\n############################################\n[*] 端口扫描", len(aliveIPList))
+		common.LogSuccess("[*] Icmp alive hosts len is: %d\n\n############################################\n[*] 端口扫描", len(aliveIPList))
 		if common.Scantype == "icmp" {
 			common.LogWG.Wait()
 			return
@@ -387,8 +314,7 @@ func Scan(inputInfo common.HostInfo) {
 		}
 
 		// 做nmap扫描/端口存活/poc扫描。PortScanBatchTask里具体做哪一种扫描取决于 -nmap、-poc选项是否设置
-		alivePortResList = PortScanBatchTask(aliveIPList, common.PortsInput, common.TcpTimeout)
-		common.LogSuccess("\n[*] alive ports len is: %d\n", len(alivePortResList)) // 这是存活的总ip:port数，其实就是存活资产总数
+		PortScanBatchTaskWithList(aliveIPList, common.PortsInput)
 		if common.Scantype == "portscan" {
 			common.LogWG.Wait()
 			return
@@ -396,39 +322,28 @@ func Scan(inputInfo common.HostInfo) {
 
 	} else {
 		// 1.2 跳过icmp扫描，直接做端口探测和协议识别
-		needProbePorts := common.ParsePort(common.PortsInput)
-		finalResChan := make(chan *PortScanRes, common.PortScanThreadNum)
-		portscanWg := sync.WaitGroup{}
+		//finalResChan := make(chan *PortScanRes, common.PortScanThreadNum)
+		//portscanWg := sync.WaitGroup{}
+		common.LogSuccess("[*] 端口扫描")
+
 		if common.UseNmap {
 			gonmap.SetFilter(9)
 		}
-		// 从通道获取gonmap端口探测结果
-		go func() {
-			portscanWg.Add(1)
-			for portScanRes := range finalResChan {
-				alivePortResList = append(alivePortResList, portScanRes)
-			}
-			portscanWg.Done()
-		}()
 
-		for _, p := range needProbePorts {
-			// 依次探测每个端口
-			targetInputCh, err := common.ParseIPsByChanMaster(inputInfo.Host)
-			if err != nil {
-				fmt.Println("parse ip err:", err)
-				return
-			}
-			PortScanBatchTaskByChan(targetInputCh, p, common.TcpTimeout, finalResChan)
+		targetInputCh, err := common.ParseIPsByChanMaster(inputInfo.Host, false)
+		if err != nil {
+			fmt.Println("parse ip err:", err)
+			return
 		}
-		portscanWg.Wait()
+
+		PortScanBatchTaskWithChan(targetInputCh)
 
 		// 解析-hf输入的文件，此处需要解析是因为ParseIPByChan里不再解析输入文件
 		if common.HostFile != "" {
 			// 输入是文件类型，从文件读取目标
 			var ipListFromFile []string
 			ipListFromFile, _ = common.ReadInputFile(common.HostFile)
-			alivePortResList = PortScanBatchTask(ipListFromFile, common.PortsInput, common.TcpTimeout)
-			common.LogSuccess("\n[*] alive ports len is: %d\n", len(alivePortResList)) // 这是存活的总ip:port数，其实就是存活资产总数
+			PortScanBatchTaskWithList(ipListFromFile, common.PortsInput)
 		}
 	}
 
@@ -453,65 +368,10 @@ ScanIpContainPort:
 	}
 
 	gonmap.Clear()
+	runtime.GC() //回收gonmap对象等
 
 	if len(alivePortResList) == 0 {
 		goto ScanUrl
-	}
-
-	// 2.2 对于之前探测的纯ip/ip段目标资产，其中开放了端口且特定协议/特定端口的，使用插件进一步扫描
-	common.LogSuccess("############################################\n[*] 深度扫描")
-	common.LogSuccess("============================================")
-	runtime.GC() //回收gonmap对象等
-
-	// 端口探测、协议识别结束后，从探测结果列表alivePortInfoSlice中获取 ip、port、识别出的协议，然后进一步对端口上的应用服务进行识别、提取更多有用信息，如http、smb、rdp等
-	for _, targetInfoOfAlive := range alivePortResList {
-		targetInfo := common.HostInfo{
-			Host:    targetInfoOfAlive.ip,
-			Ports:   targetInfoOfAlive.port,
-			PocName: inputInfo.PocName,
-		}
-		protocol := targetInfoOfAlive.protocol
-		if protocol == "" {
-			protocol = "unkown"
-		}
-		_, exist := common.AlivePortsMap.Load(targetInfoOfAlive.port)
-		if exist != true {
-			common.AlivePortsMap.Store(targetInfoOfAlive.port, true)
-		}
-		// 遍历当前目标的端口是否是插件相关的端口
-		switch {
-		case targetInfo.Ports == "135":
-			CallScanTaskByPort(targetInfo.Ports, &targetInfo, &wg) //findnet
-			if common.IsWmi {
-				CallScanTaskByPort("1000005", &inputInfo, &wg) //wmiexec
-			}
-		case targetInfo.Ports == "389":
-			res := fmt.Sprintf("[+] Product %s://%s:%s\tbanner\t(%s)", protocol, targetInfo.Host, targetInfo.Ports, "[+]DC")
-			common.LogSuccess(res)
-		case targetInfo.Ports == "445":
-			CallScanTaskByPort(targetInfo.Ports, &targetInfo, &wg) // smb信息探测
-			CallScanTaskByPort(ms17010, &targetInfo, &wg)          // ms17010漏洞检测
-			CallScanTaskByPort("1000002", &targetInfo, &wg)        // smbghost漏洞检测
-		case targetInfo.Ports == "9000":
-			CallScanTaskByPort(targetInfo.Ports, &targetInfo, &wg) // fcgiscan漏洞检测
-		case IsContain(common.PortsHasPlugin, targetInfo.Ports):
-			// 如果要探测的目标端口在本程序中有专用的探测方法，则使用专用探测方法(如445、21、3389、135等)。否则走入default使用http尝试探测
-			CallScanTaskByPort(targetInfo.Ports, &targetInfo, &wg) // plugins scan
-			fallthrough                                            // 继续执行下一个分支
-		default:
-			// 如果使用了 -nmap选项， 则端口探测后会识别到协议，可根据协议来启用对应插件进行深度利用
-			if common.UseNmap {
-				if PluginListByProto[protocol] != nil {
-					CallScanTaskByProtocol(protocol, &targetInfo, &wg)
-				} else {
-					// 这里是插件未覆盖的协议，那么只进行http扫描识别就行
-					CallScanTaskByProtocol("http", &targetInfo, &wg) // plugins scan
-				}
-			} else {
-				// 这里是插件未覆盖的协议，那么只进行http扫描识别就行
-				CallScanTaskByPort(web, &targetInfo, &wg)
-			}
-		} // switch end
 	}
 
 ScanUrl:
@@ -523,7 +383,7 @@ ScanUrl:
 			Url:     url,
 			PocName: inputInfo.PocName,
 		}
-		CallScanTaskByProtocol("http", &targetInfo, &wg)
+		CallScanTaskByProtocolAsync("http", &targetInfo, &wg)
 	}
 
 	wg.Wait()
@@ -546,23 +406,9 @@ ScanUrl:
 	return
 }
 
-func CallScanTaskByPort(scantype string, info *common.HostInfo, wg *sync.WaitGroup) {
-	common.PluginTaskRateCtrlCh <- struct{}{}
+func CallScanTaskByPortAsync(scantype string, info *common.HostInfo, wg *sync.WaitGroup) {
 	wg.Add(1)
-	//go func() {
-	//	defer func() {
-	//		//Mutex.Lock()
-	//		//common.End += 1
-	//		//Mutex.Unlock()
-	//		wg.Done()
-	//		<-common.PluginTaskRateCtrlCh
-	//		if r := recover(); r != nil {
-	//			fmt.Printf("[ERROR] Goroutine CallScanTaskByPort panic: %v\n", r)
-	//		}
-	//	}()
-	//	ScanFunc(&scantype, info)
-	//}()
-
+	common.PluginTaskRateCtrlCh <- struct{}{}
 	common.PoolScan.Submit(func() {
 		defer func() {
 			//Mutex.Lock()
@@ -571,38 +417,23 @@ func CallScanTaskByPort(scantype string, info *common.HostInfo, wg *sync.WaitGro
 			wg.Done()
 			<-common.PluginTaskRateCtrlCh
 			if r := recover(); r != nil {
-				fmt.Printf("[ERROR] Goroutine CallScanTaskByPort panic: %v\n", r)
+				fmt.Printf("[ERROR] Goroutine CallScanTaskByPortAsync panic: %v\n", r)
 			}
 		}()
 		ScanFunc(&scantype, info)
 	})
-
 }
 
 // 根据协议调用插件
-func CallScanTaskByProtocol(protocol string, info *common.HostInfo, wg *sync.WaitGroup) {
-	common.PluginTaskRateCtrlCh <- struct{}{}
+func CallScanTaskByProtocolAsync(protocol string, info *common.HostInfo, wg *sync.WaitGroup) {
 	wg.Add(1)
-	//go func() {
-	//	defer func() {
-	//		wg.Done()
-	//		<-common.PluginTaskRateCtrlCh
-	//		if r := recover(); r != nil {
-	//			fmt.Printf("[ERROR] Goroutine CallScanTaskByProtocol panic: %v\n", r)
-	//			debug.PrintStack()
-	//		}
-	//	}()
-	//	f := reflect.ValueOf(PluginListByProto[protocol])
-	//	in := []reflect.Value{reflect.ValueOf(info)}
-	//	f.Call(in)
-	//}()
-
+	common.PluginTaskRateCtrlCh <- struct{}{}
 	common.PoolScan.Submit(func() {
 		defer func() {
 			wg.Done()
 			<-common.PluginTaskRateCtrlCh
 			if r := recover(); r != nil {
-				fmt.Printf("[ERROR] Goroutine CallScanTaskByProtocol panic: %v\n", r)
+				fmt.Printf("[ERROR] Goroutine CallScanTaskByProtocolAsync panic: %v\n", r)
 				debug.PrintStack()
 			}
 		}()

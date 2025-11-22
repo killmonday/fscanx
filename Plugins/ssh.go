@@ -8,9 +8,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xxx/wscan/common"
+	"github.com/killmonday/fscanx/common"
 	//"golang.org/x/crypto/ssh"
-	"github.com/xxx/wscan/mylib/ssh"
+	"github.com/killmonday/fscanx/mylib/ssh"
 )
 
 func SshScan(info *common.HostInfo) (tmperr error) {
@@ -74,7 +74,7 @@ func SshConn(info *common.HostInfo, user string, pass string) (flag bool, err er
 		},
 	}
 
-	conn, err := common.WrapperTcpWithTimeout("tcp", info.Host+":"+info.Ports, time.Duration(common.TcpTimeout*2)*time.Second)
+	conn, err := common.GetConn("tcp", info.Host+":"+info.Ports, time.Duration(common.TcpTimeout*2)*time.Second)
 	if err != nil {
 		return
 	}

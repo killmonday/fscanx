@@ -3,7 +3,7 @@ package gonmap
 import (
 	"errors"
 	"fmt"
-	"github.com/xxx/wscan/mylib/gonmap/simplenet"
+	"github.com/killmonday/fscanx/mylib/gonmap/simplenet"
 	"regexp"
 	"strconv"
 	"strings"
@@ -75,7 +75,7 @@ type probe struct {
 //	return text, tls, err
 //}
 
-func (p *probe) scan(host string, port int, tls bool, timeout time.Duration, size int) (string, bool, error) {
+func (p *probe) scan(host string, port int, tls bool, timeout time.Duration) (string, bool, bool) {
 	defer func() {
 		if r := recover(); r != nil {
 			//fmt.Printf("[CRITICAL] scan() panic: %v %s %d\n", r, host, port)
@@ -83,37 +83,13 @@ func (p *probe) scan(host string, port int, tls bool, timeout time.Duration, siz
 		}
 	}()
 	uri := fmt.Sprintf("%s:%d", host, port)
-	//fmt.Println("[debug] 1，protocol=", p.protocol) //tcp udp
-	//sendRaw := ""
-	//sendRaw = strings.Replace(p.sendRaw, "{Host}", fmt.Sprintf("%s:%d", host, port), -1)
-
-	//fmt.Println("[debug] 2")
-	//fmt.Println("[debug] pram:", p.protocol, tls, uri, sendRaw, timeout, size)
-	text, err := simplenet.Send(p.protocol, tls, uri, p.sendRaw, timeout, size)
-	//fmt.Println("[debug] 3")
-
-	if err == nil {
-		return text, tls, nil
+	text, isOpen := simplenet.Send(tls, uri, p.sendRaw, timeout)
+	if isOpen && len(text) == 0 && tls == true {
+		tls = false
+		text, isOpen = simplenet.Send(tls, uri, p.sendRaw, timeout)
+		return text, tls, isOpen
 	}
-	//fmt.Println("[debug] get err:", err)
-	//fmt.Println("[debug] 4")
-
-	if strings.Contains(err.Error(), "STEP") && tls == true {
-		//fmt.Println("[debug] 5")
-
-		text2, err2 := simplenet.Send(p.protocol, false, uri, p.sendRaw, timeout, size)
-		if err2 != nil {
-			//fmt.Println("[debug] 6")
-
-			// fmt.Println("err2", err2)
-			return text, tls, err
-		}
-		//fmt.Println("[debug] 7")
-
-		return text2, false, err2
-	}
-	//fmt.Println("[debug] scan() return:", text, tls, err)
-	return text, tls, err
+	return text, tls, isOpen
 }
 
 func (p *probe) match(s string) *FingerPrint {
@@ -127,7 +103,11 @@ func (p *probe) match(s string) *FingerPrint {
 				continue
 			}
 		}
-		//logger.Println("开始匹配正则：", m.service, m.patternRegexp.String())
+		if strings.Contains(m.patternRegexp.String(), "Microsoft Terminal") {
+			logger.Println("开始匹配正则：", m.service, m.patternRegexp.String())
+
+		}
+
 		if m.patternRegexp.MatchString(s) {
 			//标记当前正则
 			f.MatchRegexString = m.patternRegexp.String()

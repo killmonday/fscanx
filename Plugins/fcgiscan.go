@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/xxx/wscan/common"
+	"github.com/killmonday/fscanx/common"
 )
 
 //links
@@ -184,7 +184,7 @@ type FCGIClient struct {
 }
 
 func New(addr string, timeout int64) (fcgi *FCGIClient, err error) {
-	conn, err := common.WrapperTcpWithTimeout("tcp", addr, time.Duration(timeout)*time.Second)
+	conn, err := common.GetConn("tcp", addr, time.Duration(timeout)*time.Second)
 	fcgi = &FCGIClient{
 		rwc:       conn,
 		keepAlive: false,

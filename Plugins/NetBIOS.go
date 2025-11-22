@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xxx/wscan/common"
+	"github.com/killmonday/fscanx/common"
 	"gopkg.in/yaml.v3"
 )
 
@@ -42,7 +42,7 @@ func NetBIOS1(info *common.HostInfo) (netbios NetBiosInfo, err error) {
 	}
 	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
 	var conn net.Conn
-	conn, err = common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(common.TcpTimeout)*time.Second)
+	conn, err = common.GetConn("tcp", realhost, time.Duration(common.TcpTimeout)*time.Second)
 	if err != nil {
 		return
 	}
@@ -99,7 +99,7 @@ func GetNbnsname(info *common.HostInfo) (netbios NetBiosInfo, err error) {
 	realhost := fmt.Sprintf("%s:137", info.Host)
 
 	var conn net.Conn
-	conn, err = common.WrapperTcpWithTimeout("udp", realhost, time.Duration(common.TcpTimeout)*time.Second)
+	conn, err = common.GetConn("udp", realhost, time.Duration(common.TcpTimeout)*time.Second)
 	if err != nil {
 		//fmt.Println("fuck err:", err)
 		return

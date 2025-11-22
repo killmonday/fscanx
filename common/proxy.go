@@ -2,7 +2,7 @@ package common
 
 import (
 	"errors"
-	proxy2 "github.com/xxx/wscan/mylib/proxy"
+	proxy2 "github.com/killmonday/fscanx/mylib/proxy"
 	"net"
 	"net/url"
 	"strconv"
@@ -10,7 +10,7 @@ import (
 	"time"
 )
 
-var GDialer = &net.Dialer{Timeout: 5 * time.Second}
+var GDialer = &net.Dialer{Timeout: 5 * time.Second, KeepAlive: 1 * time.Second}
 var defaultTcpDuration time.Duration
 
 func initDialer(timeout time.Duration) {
@@ -30,17 +30,18 @@ func initDialer(timeout time.Duration) {
 	defaultTcpDuration = time.Duration(TcpTimeout)
 }
 
-func WrapperTcpWithTimeout(network, address string, timeout time.Duration) (net.Conn, error) {
+func GetConn(network, address string, timeout time.Duration) (net.Conn, error) {
 	defer func() {
 		if r := recover(); r != nil {
-			LogSuccess("[ERROR] Goroutine WrapperTcpWithTimeout panic: %v\n", r)
+			LogSuccess("[ERROR] Goroutine GetConn panic: %v\n", r)
 		}
 	}()
-	d := GDialer
-	if timeout != defaultTcpDuration {
-		d = &net.Dialer{Timeout: timeout}
+	if timeout == GDialer.Timeout {
+		return WrapperTCP(network, address, GDialer)
+	} else {
+		Dialer := &net.Dialer{Timeout: timeout, KeepAlive: 1 * time.Second}
+		return WrapperTCP(network, address, Dialer)
 	}
-	return WrapperTCP(network, address, d)
 }
 
 func GetProxyDialer() interface{} {
@@ -66,11 +67,10 @@ func GetProxyDialer() interface{} {
 		}
 		return dialer
 	}
-
 }
 
 // WrapperTCP 建立连接返回conn
-func WrapperTCP(network, address string, forward *net.Dialer) (net.Conn, error) {
+func WrapperTCP(network, address string, dia *net.Dialer) (net.Conn, error) {
 	var conn net.Conn
 	// 无代理
 	if Socks5Proxy == "" {
@@ -88,10 +88,10 @@ func WrapperTCP(network, address string, forward *net.Dialer) (net.Conn, error) 
 			if err != nil {
 				return nil, err
 			}
-			socket.SetDeadline(time.Now().Add(time.Duration(TcpTimeout) * time.Second))
+			socket.SetDeadline(time.Now().Add(dia.Timeout))
 			return socket, nil
 		}
-		conn, err = forward.Dial(network, address)
+		conn, err = dia.Dial(network, address)
 		if err != nil {
 			if conn != nil {
 				conn.Close()
@@ -100,7 +100,7 @@ func WrapperTCP(network, address string, forward *net.Dialer) (net.Conn, error) 
 		}
 	} else {
 		// 有代理
-		dailer, err := Socks5Dailer(forward)
+		dailer, err := Socks5Dailer(dia)
 		if err != nil {
 			return nil, err
 		}
@@ -114,11 +114,10 @@ func WrapperTCP(network, address string, forward *net.Dialer) (net.Conn, error) 
 		}
 	}
 
-	timeout := forward.Timeout
-	if err := conn.SetWriteDeadline(time.Now().Add(timeout)); err != nil {
+	if err := conn.SetWriteDeadline(time.Now().Add(dia.Timeout)); err != nil {
 		return nil, err
 	}
-	if err := conn.SetReadDeadline(time.Now().Add(timeout)); err != nil {
+	if err := conn.SetReadDeadline(time.Now().Add(dia.Timeout)); err != nil {
 		return nil, err
 	}
 

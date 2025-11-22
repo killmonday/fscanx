@@ -1,9 +1,11 @@
 package gonmap
 
 import (
+	"fmt"
 	"log"
 	"os"
 	"regexp"
+	"runtime/debug"
 	"strings"
 	"time"
 )
@@ -34,6 +36,11 @@ func Clear() {
 }
 
 func initWithFilter(filter int) {
+	defer func() {
+		if r := recover(); r != nil {
+			debug.PrintStack()
+		}
+	}()
 	//初始化NMAP探针库
 	repairNMAPString()
 	nmap = &Nmap{
@@ -46,19 +53,18 @@ func initWithFilter(filter int) {
 		timeout: time.Second,
 
 		probeUsed:          emptyProbeList,
-		bypassAllProbePort: []int{161, 137, 139, 135, 389, 443, 445, 548, 1433, 6379, 1883, 5432, 1521, 3389, 3388, 3389, 33890, 33900}, //own：指定这些端口不会自动添加get_request和tcp null探针在探针列表最前面，否则会把allProbeMap数组里的探针作为优先探测的序列
+		bypassAllProbePort: []int{161, 137, 139, 135, 389, 443, 445, 465, 548, 993, 994, 995, 1433, 3306, 6379, 7891, 4000, 2022, 6000, 7000, 7890, 1883, 5432, 1521, 3389, 3388, 3389, 3390, 33890, 33900, 10809, 10808}, //own：暂时不用了//指定这些端口不会自动添加get_request和tcp null探针在探针列表最前面，否则会把allProbeMap数组里的探针作为优先探测的序列
 		sslSecondProbeMap:  []string{"TCP_TerminalServerCookie", "TCP_TerminalServer"},
-		allProbeMap:        []string{"TCP_GetRequest", "TCP_NULL"}, //优先探测这些探针，除非当前端口在bypassAllProbePort数组里
+		allProbeMap:        []string{"TCP_GetRequest", "TCP_NULL", "TCP_TLSSessionReq", "TCP_TerminalServer", "TCP_Socks5", "TCP_SMBProgNeg", "TCP_redis-server", "TCP_ms-sql-s", "TCP_Memcache"}, //所有端口默认探测这些探针，除非指纹文件中的探针定义了默认探测端口
 		sslProbeMap:        []string{"TCP_TLSSessionReq", "TCP_SSLSessionReq", "TCP_SSLv23SessionReq"},
 	}
 	for i := 0; i <= 65535; i++ {
 		nmap.portProbeMap[i] = []string{}
 	}
-	//nmap.portProbeMap[0] = []string{}
 
-	//nmap.loads(nmapServiceProbes + nmapCustomizeProbes)
 	nmap.loads(&nmapServiceProbes)
 	nmap.loads(&nmapCustomizeProbes)
+
 	//修复fallback
 	nmap.fixFallback()
 	//新增自定义指纹信息
@@ -71,11 +77,28 @@ func initWithFilter(filter int) {
 	//nmap.allProbeMap = nmap.sortOfRarity(nmap.allProbeMap)
 	nmap.sslProbeMap = nmap.sortOfRarity(nmap.sslProbeMap)
 	for index, value := range nmap.portProbeMap {
-		nmap.portProbeMap[index] = nmap.sortOfRarity(value)
+		if value != nil && len(value) > 1 {
+			first := value[0]
+			rest := nmap.sortOfRarity(value[1:])
+			nmap.portProbeMap[index] = append([]string{}, first)
+			nmap.portProbeMap[index] = append(nmap.portProbeMap[index], rest...)
+		}
 	}
-	//fmt.Println(nmap.portProbeMap[10809])
-	//输出统计数据状态
-	statistical()
+
+	for i := 0; i <= 65535; i++ {
+		nmap.portProbeMap[i] = append(nmap.portProbeMap[i], nmap.allProbeMap...)
+		//nmap.portProbeMap[i] = append(nmap.portProbeMap[i], nmap.sslProbeMap...)
+		nmap.portProbeMap[i] = nmap.portProbeMap[i].removeDuplicate() //再次去重
+
+	}
+
+	//for i := 0; i <= 65535; i++ {
+	//	if len(nmap.portProbeMap[i]) != 0 {
+	//		fmt.Println("端口", i, nmap.portProbeMap[i])
+	//	}
+	//}
+
+	statistical() //输出统计数据状态
 	nmapServiceProbes = ""
 }
 
@@ -149,29 +172,42 @@ func customNMAPMatch() {
 	nmap.AddMatch("TCP_TerminalServerCookie", `ms-wbt-server m|^\x03\0\0\x13\x0e\xd0\0\0\x124\0\x02.*\0\x02\0\0\0| p/Microsoft Terminal Services/ o/Windows/ cpe:/o:microsoft:windows/a`)
 	nmap.AddMatch("TCP_redis-server", `redis m|^.*redis_version:([.\d]+)\n|s p/Redis key-value store/ v/$1/ cpe:/a:redislabs:redis:$1/`)
 	nmap.AddMatch("TCP_redis-server", `redis m|^-NOAUTH Authentication required.|s p/Redis key-value store/`)
+	nmap.AddMatch("TCP_TLSSessionReq", `rdp m|^\x03\x00\x00\x13\x0e\xd0\x00\x00\x124\x00\x02\x1f\x08\x00\x08\x00\x00\x00$| p/Microsoft Terminal Services/ o/Windows/ cpe:/o:microsoft:windows/a`)
+	nmap.AddMatch("TCP_TLSSessionReq", `rdp m|^\x03\0\0\b\x06\xd0\0\0\x12\x34\0$| p/Microsoft Terminal Services/ o/Windows 2003/ cpe:/o:microsoft:windows_2003/a`)
+	nmap.AddMatch("TCP_TerminalServer", `rdp m|^\x03\x00\x00\x13\x0e\xd0\x00\x00\x124\x00\x02\x1f\x08\x00\x08\x00\x00\x00$| p/Microsoft Terminal Services/ o/Windows/ cpe:/o:microsoft:windows/a`)
+	nmap.AddMatch("TCP_TerminalServer", `rdp m|^\x03\0\0\b\x06\xd0\0\0\x12\x34\0$| p/Microsoft Terminal Services/ o/Windows 2003/ cpe:/o:microsoft:windows_2003/a`)
+	nmap.AddMatch("TCP_TerminalServerCookie", `rdp m|^\x03\0\0\b\x06\xd0\0\0\x12\x34\0$| p/Microsoft Terminal Services/ o/Windows 2003/ cpe:/o:microsoft:windows_2003/a`)
+	nmap.AddMatch("TCP_TerminalServerCookie", `rdp m|^\x03\x00\x00\x13\x0e\xd0\x00\x00\x124\x00\x02\x1f\x08\x00\x08\x00\x00\x00$| p/Microsoft Terminal Services/ o/Windows/ cpe:/o:microsoft:windows/a`)
+
 }
 
 func optimizeNMAPProbes() {
+	defer func() {
+		if r := recover(); r != nil {
+			fmt.Println(r)
+			debug.PrintStack()
+		}
+	}()
 	nmap.probeNameMap["TCP_GenericLines"].sslports = nmap.probeNameMap["TCP_GenericLines"].sslports.append(993, 994, 456, 995)
 	//优化检测逻辑，及端口对应的默认探针
 	nmap.portProbeMap[993] = append([]string{"TCP_GenericLines"}, nmap.portProbeMap[993]...)
 	nmap.portProbeMap[994] = append([]string{"TCP_GenericLines"}, nmap.portProbeMap[994]...)
 	nmap.portProbeMap[995] = append([]string{"TCP_GenericLines"}, nmap.portProbeMap[995]...)
 	nmap.portProbeMap[465] = append([]string{"TCP_GenericLines"}, nmap.portProbeMap[465]...)
-	nmap.portProbeMap[3390] = append(nmap.portProbeMap[3390], "TCP_TerminalServer")
-	nmap.portProbeMap[3390] = append(nmap.portProbeMap[3390], "TCP_TerminalServerCookie")
-	nmap.portProbeMap[33890] = append(nmap.portProbeMap[33890], "TCP_TerminalServer")
-	nmap.portProbeMap[33890] = append(nmap.portProbeMap[33890], "TCP_TerminalServerCookie")
-	nmap.portProbeMap[33900] = append(nmap.portProbeMap[33900], "TCP_TerminalServer")
-	nmap.portProbeMap[33900] = append(nmap.portProbeMap[33900], "TCP_TerminalServerCookie")
+	nmap.portProbeMap[3389] = append([]string{"TCP_TerminalServer"}, "TCP_TerminalServerCookie", "TCP_TLSSessionReq")
+	nmap.portProbeMap[3388] = append([]string{"TCP_TerminalServer"}, "TCP_TerminalServerCookie", "TCP_TLSSessionReq")
+	nmap.portProbeMap[3390] = append([]string{"TCP_TerminalServer"}, "TCP_TerminalServerCookie", "TCP_TLSSessionReq")
+	nmap.portProbeMap[33890] = append([]string{"TCP_TerminalServer"}, "TCP_TerminalServerCookie", "TCP_TLSSessionReq")
+	nmap.portProbeMap[33900] = append([]string{"TCP_TerminalServer"}, "TCP_TerminalServerCookie", "TCP_TLSSessionReq")
+	nmap.portProbeMap[3389] = append([]string{"TCP_TerminalServer"}, "TCP_TerminalServerCookie", "TCP_TLSSessionReq")
+	//nmap.portProbeMap[3388] = append([]string{"TCP_TLSSessionReq"}, "TCP_TerminalServerCookie", "TCP_TerminalServer")
 	nmap.portProbeMap[7891] = append(nmap.portProbeMap[7891], "TCP_Socks5")
 	nmap.portProbeMap[4000] = append(nmap.portProbeMap[4000], "TCP_Socks5")
 	nmap.portProbeMap[2022] = append(nmap.portProbeMap[2022], "TCP_Socks5")
 	nmap.portProbeMap[6000] = append(nmap.portProbeMap[6000], "TCP_Socks5")
 	nmap.portProbeMap[7000] = append(nmap.portProbeMap[7000], "TCP_Socks5")
-	//nmap.portProbeMap[10809] = append(nmap.portProbeMap[10809], "TCP_HttpProxy")
-	//nmap.portProbeMap[10809] = append([]string{"TCP_HttpProxy"}, nmap.portProbeMap[10809]...)
-	//nmap.portProbeMap[10808] = append(nmap.portProbeMap[10808], "TCP_Socks5") //或在nmap-service-probes.go中(搜索TCP Socks5)添加10808端口
+	nmap.portProbeMap[7890] = append(nmap.portProbeMap[7000], "TCP_Socks5")
+	nmap.portProbeMap[3306] = []string{"TCP_NULL", "TCP_GetRequest"}
 
 	nmap.probeNameMap["TCP_GetRequest"].fallback = "TCP_NULL" //将TCP_GetRequest的fallback参数设置为NULL探针，避免漏资产
 	nmap.probeNameMap["TCP_GenericLines"].fallback = "TCP_NULL"
@@ -210,9 +246,9 @@ func FixProtocol(oldProtocol string) string {
 	if oldProtocol == "ssl/http" {
 		return "https"
 	}
-	if oldProtocol == "http-proxy" {
-		return "http"
-	}
+	//if oldProtocol == "http-proxy" {
+	//	return "http"
+	//}
 	if oldProtocol == "ms-wbt-server" {
 		return "rdp"
 	}

@@ -6,10 +6,10 @@ import (
 	"fmt"
 	"unsafe"
 
-	"github.com/xxx/wscan/mylib/grdp/glog"
+	"github.com/killmonday/fscanx/mylib/grdp/glog"
 
-	"github.com/xxx/wscan/mylib/grdp/core"
-	"github.com/xxx/wscan/mylib/grdp/emission"
+	"github.com/killmonday/fscanx/mylib/grdp/core"
+	"github.com/killmonday/fscanx/mylib/grdp/emission"
 )
 
 const (

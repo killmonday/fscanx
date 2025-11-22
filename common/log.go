@@ -166,8 +166,9 @@ func WriteFile(result string, fl *os.File) {
 		jsonData = append(jsonData, []byte(",\n")...)
 		_, err = fl.Write(jsonData)
 	} else {
-		_, err = fl.Write([]byte(result + "\n"))
+		_, err = fl.WriteString(result + "\n")
 	}
+	err = fl.Sync()
 	if err != nil {
 		fmt.Printf("Write log error, %v\n", err)
 	}

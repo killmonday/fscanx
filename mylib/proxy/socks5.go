@@ -6,7 +6,7 @@ package proxy
 
 import (
 	"context"
-	"github.com/xxx/wscan/mylib/socks"
+	"github.com/killmonday/fscanx/mylib/socks"
 	"net"
 )
 

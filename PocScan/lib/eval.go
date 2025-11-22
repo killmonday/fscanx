@@ -12,7 +12,7 @@ import (
 	"github.com/google/cel-go/common/types"
 	"github.com/google/cel-go/common/types/ref"
 	"github.com/google/cel-go/interpreter/functions"
-	"github.com/xxx/wscan/common"
+	"github.com/killmonday/fscanx/common"
 	exprpb "google.golang.org/genproto/googleapis/api/expr/v1alpha1"
 	"io"
 	"math/rand"

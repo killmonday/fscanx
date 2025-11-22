@@ -4,7 +4,7 @@ import (
 	"encoding/hex"
 	"testing"
 
-	"github.com/xxx/wscan/mylib/grdp/protocol/nla"
+	"github.com/killmonday/fscanx/mylib/grdp/protocol/nla"
 )
 
 func TestEncodeDERTRequest(t *testing.T) {

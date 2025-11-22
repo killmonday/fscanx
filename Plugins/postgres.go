@@ -6,8 +6,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/killmonday/fscanx/common"
 	_ "github.com/lib/pq"
-	"github.com/xxx/wscan/common"
 )
 
 func PostgresScan(info *common.HostInfo) (tmperr error) {

@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xxx/wscan/mylib/grdp/core"
-	"github.com/xxx/wscan/mylib/grdp/emission"
-	"github.com/xxx/wscan/mylib/grdp/glog"
-	"github.com/xxx/wscan/mylib/grdp/protocol/nla"
+	"github.com/killmonday/fscanx/mylib/grdp/core"
+	"github.com/killmonday/fscanx/mylib/grdp/emission"
+	"github.com/killmonday/fscanx/mylib/grdp/glog"
+	"github.com/killmonday/fscanx/mylib/grdp/protocol/nla"
 )
 
 // take idea from https://github.com/Madnikulin50/gordp
@@ -426,7 +426,7 @@ func (t *TPKT) recvExtendedFastPathHeader(s []byte, err error) {
 	leftPart := t.lastShortLength & ^0x80
 	packetSize := (leftPart << 8) + int(rightPart)
 	if packetSize == 0 {
-		fmt.Println("get packetSize,rightPart=", packetSize, rightPart)
+		//fmt.Println("get packetSize,rightPart=", packetSize, rightPart)
 		t.Emit("close")
 	} else {
 		core.StartReadBytes(packetSize-3, t.Conn, t.recvFastPath)

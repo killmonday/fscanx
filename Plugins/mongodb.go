@@ -5,7 +5,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xxx/wscan/common"
+	"github.com/killmonday/fscanx/common"
 )
 
 func MongodbScan(info *common.HostInfo) error {
@@ -53,7 +53,7 @@ func MongodbUnauth(info *common.HostInfo) (flag bool, err error) {
 	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
 
 	checkUnAuth := func(address string, packet []byte) (string, error) {
-		conn, err := common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(common.TcpTimeout)*time.Second)
+		conn, err := common.GetConn("tcp", realhost, time.Duration(common.TcpTimeout)*time.Second)
 		if err != nil {
 			return "", err
 		}

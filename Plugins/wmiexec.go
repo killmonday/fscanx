@@ -7,7 +7,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xxx/wscan/common"
+	"github.com/killmonday/fscanx/common"
 
 	"github.com/C-Sto/goWMIExec/pkg/wmiexec"
 )

@@ -6,11 +6,11 @@ import (
 	"crypto/tls"
 	"errors"
 	"fmt"
-	"github.com/xxx/wscan/PocScan"
-	"github.com/xxx/wscan/PocScan/lib"
-	"github.com/xxx/wscan/common"
-	fingers "github.com/xxx/wscan/mylib/finger"
-	"github.com/xxx/wscan/mylib/stdio/chinese"
+	"github.com/killmonday/fscanx/PocScan"
+	"github.com/killmonday/fscanx/PocScan/lib"
+	"github.com/killmonday/fscanx/common"
+	fingers "github.com/killmonday/fscanx/mylib/finger"
+	"github.com/killmonday/fscanx/mylib/stdio/chinese"
 	"golang.org/x/net/html"
 	"io"
 	"net/http"
@@ -55,8 +55,14 @@ type stringer interface {
 
 var BufPool = sync.Pool{
 	New: func() any {
-		// 预分配 32KB buffer（适中）
-		return make([]byte, 16*1024)
+		// 最大长度 192KB buffer
+		return make([]byte, 192*1024)
+	},
+}
+
+var BufBuildPool = sync.Pool{
+	New: func() any {
+		return &bytes.Buffer{}
 	},
 }
 
@@ -430,7 +436,7 @@ func DoWebScan(targetInfo *common.HostInfo, scanType int, firstUrl string) (erro
 		req.Close = true
 	}()
 
-	body, err := ReadRawWithSize(resp, 196*1024) // 最大获取前196KB页面
+	body, err := ReadRawWithSize(resp, 192*1024) // 最大获取前64KB页面
 	if err != nil {
 		//fmt.Println("[-] read body err:", err)
 	}
@@ -671,15 +677,26 @@ func (tr *TimeoutReader) Read(p []byte) (n int, err error) {
 // 读取原始响应体，包括header+body
 func ReadRawWithSize(resp *http.Response, size int64) ([]byte, error) {
 	defer resp.Body.Close()
-	var raw bytes.Buffer
+	//var raw bytes.Buffer
+	raw := BufBuildPool.Get().(*bytes.Buffer)
+	defer raw.Reset()
+	defer BufBuildPool.Put(raw)
 
 	// http响应状态行
-	raw.WriteString(fmt.Sprintf("%s %s\r\n", resp.Proto, resp.Status))
+	//raw.WriteString(fmt.Sprintf("%s %s\r\n", resp.Proto, resp.Status))
+	raw.WriteString(resp.Proto)
+	raw.WriteString(" ")
+	raw.WriteString(resp.Status)
+	raw.WriteString("\r\n")
 
 	// 响应头
 	for k, v := range resp.Header {
 		for _, val := range v {
-			raw.WriteString(fmt.Sprintf("%s: %s\r\n", k, val))
+			//raw.WriteString(fmt.Sprintf("%s: %s\r\n", k, val))
+			raw.WriteString(k)
+			raw.WriteString(": ")
+			raw.WriteString(val)
+			raw.WriteString("\r\n")
 		}
 	}
 	raw.WriteString("\r\n") // header-body 分隔符
@@ -698,8 +715,9 @@ func ReadRawWithSize(resp *http.Response, size int64) ([]byte, error) {
 		Ctx:    ctx,
 	}
 	n, err := io.ReadFull(timeoutReader, buf)
+
 	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
-		err = nil // io.ErrUnexpectedEOF说明body 小于 16KB，如果是这个error则忽略
+		err = nil // io.ErrUnexpectedEOF说明body 小于 192KB，如果是这个error则忽略
 	} else if err != nil {
 		return raw.Bytes(), err
 	}
@@ -707,9 +725,9 @@ func ReadRawWithSize(resp *http.Response, size int64) ([]byte, error) {
 	raw.Write(buf[:n])
 
 	// 如果启用了http keep-alive，且body未读完，则继续读取（丢弃）剩余的部分，这是为了能复用http连接，否则检测到body未读完会直接弃用该连接
-	if resp.Close == false {
-		_, _ = io.Copy(io.Discard, resp.Body)
-	}
+	//if resp.Close == false {
+	//	_, _ = io.Copy(io.Discard, resp.Body)
+	//}
 
 	// 返回完整的响应数据
 	return raw.Bytes(), nil
@@ -878,7 +896,7 @@ func IdentifyProtocol(host string, Timeout int64) (protocol string) {
 		return
 	}
 
-	socksconn, err := common.WrapperTcpWithTimeout("tcp", host, time.Duration(Timeout)*time.Second)
+	socksconn, err := common.GetConn("tcp", host, time.Duration(Timeout)*time.Second)
 	if err != nil {
 		return
 	}

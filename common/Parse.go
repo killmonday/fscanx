@@ -170,7 +170,7 @@ func ParseInput(Info *HostInfo) {
 	}
 	if Socks5Proxy != "" && !strings.HasPrefix(Socks5Proxy, "socks5://") {
 		if !strings.Contains(Socks5Proxy, ":") {
-			Socks5Proxy = "socks5://127.0.0.1" + Socks5Proxy
+			Socks5Proxy = "socks5://127.0.0.1:" + Socks5Proxy
 		} else {
 			Socks5Proxy = "socks5://" + Socks5Proxy
 		}

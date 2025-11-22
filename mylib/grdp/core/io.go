@@ -2,7 +2,7 @@ package core
 
 import (
 	"encoding/binary"
-	"github.com/xxx/wscan/mylib/grdp/glog"
+	"github.com/killmonday/fscanx/mylib/grdp/glog"
 	"io"
 )
 

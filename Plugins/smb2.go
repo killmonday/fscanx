@@ -6,7 +6,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xxx/wscan/common"
+	"github.com/killmonday/fscanx/common"
 
 	"github.com/hirochachacha/go-smb2"
 )
@@ -112,7 +112,7 @@ func SmbScan2(info *common.HostInfo) (tmperr error) {
 
 func Smb2Con(info *common.HostInfo, user string, pass string, hash []byte, hasprint bool) (flag bool, err error, flag2 bool) {
 	//conn, err := net.DialTimeout("tcp", info.Host+":445", time.Duration(common.TcpTimeout)*time.Second)
-	conn, err := common.WrapperTcpWithTimeout("tcp", info.Host+":"+info.Ports, time.Duration(common.TcpTimeout*2)*time.Second)
+	conn, err := common.GetConn("tcp", info.Host+":"+info.Ports, time.Duration(common.TcpTimeout*2)*time.Second)
 	if err != nil {
 		return
 	}

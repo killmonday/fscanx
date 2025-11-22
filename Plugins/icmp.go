@@ -12,7 +12,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/xxx/wscan/common"
+	"github.com/killmonday/fscanx/common"
 	"golang.org/x/net/icmp"
 )
 
@@ -24,9 +24,9 @@ var (
 )
 
 // 返回存活的所有ip
-func IcmpTaskWorker(hostslist []string, Ping bool) []string {
+func IcmpTaskWorker(hostslist []string, Ping bool) {
 	aliveHostChan := make(chan string, common.Bucket_limit)
-	var aliveSave []string
+	//var aliveSave []string
 	// 接收存活结果
 	go func() {
 		defer func() {
@@ -34,17 +34,17 @@ func IcmpTaskWorker(hostslist []string, Ping bool) []string {
 				fmt.Println("[ERROR] Goroutine IcmpTaskWorker panic: ", r)
 			}
 		}()
-		for ip := range aliveHostChan {
-			if common.BloomFilter.TestString(ip) {
-				if common.Silent == false {
-					if Ping == false {
-						fmt.Printf("(icmp) Target %-15s is alive\n", ip)
-					} else {
-						fmt.Printf("(ping) Target %-15s is alive\n", ip)
-					}
-				}
-				aliveSave = append(aliveSave, ip)
+		for ipc := range aliveHostChan {
+			if common.Silent == false {
+				output := fmt.Sprintf("[*] alive net\t%s.0/24", ipc)
+				common.LogSuccess(output)
+				//if Ping == false {
+				//	fmt.Printf("(icmp) Target %-15s is alive\n", ip)
+				//} else {
+				//	fmt.Printf("(ping) Target %-15s is alive\n", ip)
+				//}
 			}
+			//aliveSave = append(aliveSave, ip)
 			livewg.Done()
 		}
 	}()
@@ -92,10 +92,10 @@ func IcmpTaskWorker(hostslist []string, Ping bool) []string {
 
 	livewg.Wait()
 	close(aliveHostChan)
-	return aliveSave
+	//return aliveSave
 }
 
-func IcmpTaskWorkerByChan(inputChan chan string, returnChan chan string, Ping bool) {
+func IcmpTaskWorkerByChan(inputChan chan string, returnChan chan string, Ping bool, isPrint bool) {
 	aliveHostChan := make(chan string, common.Bucket_limit)
 	// 接收存活结果
 	go func() {
@@ -106,7 +106,7 @@ func IcmpTaskWorkerByChan(inputChan chan string, returnChan chan string, Ping bo
 		}()
 		for ip := range aliveHostChan {
 			returnChan <- ip
-			if common.Silent == false {
+			if common.Silent == false && isPrint {
 				if Ping == false {
 					fmt.Printf("(icmp) Target %-15s is alive\n", ip)
 				} else {
@@ -132,7 +132,6 @@ func IcmpTaskWorkerByChan(inputChan chan string, returnChan chan string, Ping bo
 		conn, err := icmp.ListenPacket("ip4:icmp", local_ip)
 		if err == nil {
 			// 可以监听icmp报文，开始发包
-			fmt.Println("[debug] icmp准备发包")
 			IcmpCheckWithListenByChan(inputChan, conn, aliveHostChan)
 		} else {
 			//尝试无监听icmp探测
@@ -162,7 +161,7 @@ func IcmpTaskWorkerByChan(inputChan chan string, returnChan chan string, Ping bo
 	return
 }
 
-func IcmpCheckWithListen(hostslist []string, conn *icmp.PacketConn, chanHosts chan string) {
+func IcmpCheckWithListen(hostslist []string, conn *icmp.PacketConn, ipCChan chan string) {
 	endReceive := make(chan struct{}, 1)
 	msg := make([]byte, 100)
 	receiveWg := sync.WaitGroup{}
@@ -202,7 +201,7 @@ func IcmpCheckWithListen(hostslist []string, conn *icmp.PacketConn, chanHosts ch
 							} else {
 								AliveIpCPrefix.Store(ipc, uint16(1))
 								livewg.Add(1)
-								chanHosts <- ipStr
+								ipCChan <- ipc
 							}
 						}
 
@@ -232,7 +231,6 @@ func IcmpCheckWithListen(hostslist []string, conn *icmp.PacketConn, chanHosts ch
 }
 
 func IcmpCheckWithListenByChan(ipChan chan string, conn *icmp.PacketConn, aliveChan chan string) {
-	fmt.Println("[debug] call IcmpCheckWithListenByChan !!!!")
 	endReceive := make(chan struct{}, 1)
 	msg := make([]byte, 100)
 	receiveWg := sync.WaitGroup{}
@@ -241,13 +239,12 @@ func IcmpCheckWithListenByChan(ipChan chan string, conn *icmp.PacketConn, aliveC
 		//持续从icmp监听中 获取新报文，回传存活的ip。直到end信号
 		receiveWg.Add(1)
 		defer receiveWg.Done()
-		defer fmt.Println("icmp监听退出！！！！！！！！！！")
 		for {
 			select {
 			case <-endReceive:
 				return
 			default:
-				err := conn.SetReadDeadline(time.Now().Add(2 * time.Second))
+				err := conn.SetReadDeadline(time.Now().Add(4 * time.Second))
 				if err != nil {
 					return
 				}
@@ -257,13 +254,13 @@ func IcmpCheckWithListenByChan(ipChan chan string, conn *icmp.PacketConn, aliveC
 					continue
 				}
 				if srcAddr != nil {
-					if msg[0] != 0 || msg[1] != 0 {
+					if msg[0] != 0 || msg[1] != 0 { //不是icmp reply响应
 						continue
 					}
-					//fmt.Println("XXXXXXXXXXXXXXXXX ", srcAddr.String(), msg)
 
 					ipStr := srcAddr.String()
 					if common.BloomFilter.TestString(ipStr) {
+						//ip存在于布隆过滤器，是我们探测的ip而不是其他杂包
 						index := strings.LastIndex(ipStr, ".")
 						if index != -1 {
 							ipc := ipStr[:index]
@@ -283,7 +280,6 @@ func IcmpCheckWithListenByChan(ipChan chan string, conn *icmp.PacketConn, aliveC
 		}
 	}()
 	swg := sizedwaitgroup.New(int(common.Bucket_limit))
-	fmt.Println("[debug] xxxxxxxxxxxxxxxxxxxxxxxxxxxx")
 	// 发送icmp探测包
 	for host := range ipChan {
 		common.BloomFilter.AddString(host)
@@ -297,14 +293,14 @@ func IcmpCheckWithListenByChan(ipChan chan string, conn *icmp.PacketConn, aliveC
 		}(host)
 	}
 
-	swg.Wait()
+	swg.Wait()                                                  //等待所有icmp报文发送完毕
 	time.Sleep(time.Duration(common.PingTimeout) * time.Second) // 等待最后可能收到的icmp包
 	close(endReceive)                                           // 此处只是保险，实际依赖conn的关闭才能终止icmp监听
 	conn.Close()                                                // close conn会结束阻塞的读写部分，让goroutine得以释放
-	receiveWg.Wait()                                            // 避免函数返回后，chanHosts被立刻关闭，先阻塞等待goroutine释放
+	receiveWg.Wait()                                            // 先阻塞等待icmp报文接收的goroutine释放，避免函数返回后，aliveChan被立刻关闭
 }
 
-func IcmpCheckWithoutListen(hostslist []string, chanHosts chan string) {
+func IcmpCheckWithoutListen(hostslist []string, ipCChan chan string) {
 	//num := 1000
 	//if len(hostslist) < num {
 	//	num = len(hostslist)
@@ -325,7 +321,7 @@ func IcmpCheckWithoutListen(hostslist []string, chanHosts chan string) {
 					} else {
 						AliveIpCPrefix.Store(ipc, uint16(1))
 						livewg.Add(1)
-						chanHosts <- host
+						ipCChan <- ipc
 					}
 				}
 
@@ -407,7 +403,7 @@ func sendIcmp(host string) bool {
 	return true
 }
 
-func IcmpCheckWithExePing(hostslist []string, aliveHostChan chan string) {
+func IcmpCheckWithExePing(hostslist []string, ipCChan chan string) {
 	var wg sync.WaitGroup
 	limiter := make(chan struct{}, 50)
 	for _, host := range hostslist {
@@ -425,7 +421,7 @@ func IcmpCheckWithExePing(hostslist []string, aliveHostChan chan string) {
 					} else {
 						AliveIpCPrefix.Store(ipc, uint16(1))
 						livewg.Add(1)
-						aliveHostChan <- host
+						ipCChan <- ipc
 					}
 				}
 
@@ -583,36 +579,10 @@ func CountAliveIPCidr(ipList []string) {
 // CountAliveIPCidrWithGlobal 统计展示存活网段，返回所有存活的c段列表
 func CountAliveIPCidrWithGlobal() []string {
 	//分别构建ip的b段和c段哈希表，键是纯B段或纯C段
-	//hash_ipb_map := make(map[string]int)
-	//hash_ipc_map := make(map[string]int)
-	//aliveCNets := []string{}
-	//
-	//AliveIpVerified.Range(func(key, value interface{}) bool {
-	//	ip := key.(string)
-	//	ip_slice := strings.Split(ip, ".")
-	//	if len(ip_slice) == 4 {
-	//		ip_b_key := fmt.Sprintf("%s.%s", ip_slice[0], ip_slice[1])
-	//		ip_c_key := fmt.Sprintf("%s.%s.%s", ip_slice[0], ip_slice[1], ip_slice[2])
-	//
-	//		if _, ok := hash_ipb_map[ip_b_key]; ok {
-	//			hash_ipb_map[ip_b_key] += 1
-	//		} else {
-	//			hash_ipb_map[ip_b_key] = 1
-	//		}
-	//
-	//		if _, ok := hash_ipc_map[ip_c_key]; ok {
-	//			hash_ipc_map[ip_c_key] += 1
-	//		} else {
-	//			hash_ipc_map[ip_c_key] = 1
-	//		}
-	//	}
-	//	return true
-	//})
-
-	//分别构建ip的b段和c段哈希表，键是纯B段或纯C段
 	hashIpbMap := make(map[string]int)
 	var aliveCNets []string
 
+	//common.LogSuccess("[*] 存活c段统计")
 	common.LogSuccess("--------------------IP_C--------------------")
 	AliveIpCPrefix.Range(func(key, value interface{}) bool {
 		ip := key.(string)
@@ -639,7 +609,7 @@ func CountAliveIPCidrWithGlobal() []string {
 		common.LogSuccess(output)
 	}
 	common.LogSuccess("--------------------------------------------")
-
+	AliveIpCPrefix = sync.Map{} //清空c段map，现在已经没用了
 	return aliveCNets
 }
 

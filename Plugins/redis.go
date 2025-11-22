@@ -9,7 +9,7 @@ import (
 	"strings"
 	"time"
 
-	"github.com/xxx/wscan/common"
+	"github.com/killmonday/fscanx/common"
 )
 
 var (
@@ -49,7 +49,7 @@ func RedisScan(info *common.HostInfo) (tmperr error) {
 func RedisConn(info *common.HostInfo, pass string) (flag bool, err error) {
 	flag = false
 	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
-	conn, err := common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(common.TcpTimeout)*time.Second)
+	conn, err := common.GetConn("tcp", realhost, time.Duration(common.TcpTimeout)*time.Second)
 	if err != nil {
 		return flag, err
 	}
@@ -85,7 +85,7 @@ func RedisConn(info *common.HostInfo, pass string) (flag bool, err error) {
 func RedisUnauth(info *common.HostInfo) (flag bool, err error) {
 	flag = false
 	realhost := fmt.Sprintf("%s:%v", info.Host, info.Ports)
-	conn, err := common.WrapperTcpWithTimeout("tcp", realhost, time.Duration(common.TcpTimeout)*time.Second)
+	conn, err := common.GetConn("tcp", realhost, time.Duration(common.TcpTimeout)*time.Second)
 	if err != nil {
 		return flag, err
 	}

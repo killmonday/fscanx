@@ -8,9 +8,9 @@ import (
 	"encoding/hex"
 	"time"
 
+	"github.com/killmonday/fscanx/mylib/grdp/core"
+	"github.com/killmonday/fscanx/mylib/grdp/glog"
 	"github.com/lunixbochs/struc"
-	"github.com/xxx/wscan/mylib/grdp/core"
-	"github.com/xxx/wscan/mylib/grdp/glog"
 )
 
 const (

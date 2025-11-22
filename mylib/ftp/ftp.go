@@ -8,7 +8,7 @@ import (
 	"context"
 	"crypto/tls"
 	"errors"
-	"github.com/xxx/wscan/common"
+	"github.com/killmonday/fscanx/common"
 	"golang.org/x/net/proxy"
 	"io"
 	"net"

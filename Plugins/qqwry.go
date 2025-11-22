@@ -5,7 +5,7 @@ import (
 	"encoding/binary"
 	"errors"
 	"fmt"
-	"github.com/xxx/wscan/mylib/stdio/chinese"
+	"github.com/killmonday/fscanx/mylib/stdio/chinese"
 	"io"
 	"log"
 	"net"

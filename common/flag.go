@@ -9,8 +9,8 @@ import (
 	"strings"
 	"time"
 
+	"github.com/killmonday/fscanx/mylib/grdp/login"
 	_ "github.com/projectdiscovery/fdmax/autofdmax" //自动增加当前go程序的文件描述符的最大数量
-	"github.com/xxx/wscan/mylib/grdp/login"
 )
 
 func Banner() {
@@ -45,10 +45,10 @@ func Flag(Info *HostInfo) {
 	flag.StringVar(&Domain, "domain", "", "smb domain")
 	flag.StringVar(&Username, "user", "", "username")
 	flag.StringVar(&Password, "pwd", "", "password")
-	flag.Int64Var(&TcpTimeout, "time", 8, "Set timeout")
+	flag.Int64Var(&TcpTimeout, "time", 6, "Set port scan tcp timeout")
 	flag.StringVar(&Scantype, "m", "all", "Select task type(it will impact probe ports and task),example: -m icmp/web/webpoc...")
 	flag.StringVar(&Path, "path", "", "fcgi、smb romote file path")
-	flag.IntVar(&PortScanThreadNum, "t", 400, "Port scan Thread nums")
+	flag.IntVar(&PortScanThreadNum, "t", 512, "Port scan Thread nums")
 	flag.IntVar(&LiveTop, "top", 10, "show live len top")
 	flag.StringVar(&HostFile, "hf", "", "host file, -hf ip.txt")
 	flag.StringVar(&Userfile, "userf", "", "username file")
@@ -74,7 +74,7 @@ func Flag(Info *HostInfo) {
 	flag.StringVar(&Proxy, "proxy", "", "set poc proxy, -proxy http://127.0.0.1:8080")
 	flag.StringVar(&Socks5Proxy, "socks5", "", "set socks5 proxy, will be used in tcp connection, timeout setting will not work")
 	flag.StringVar(&Cookie, "cookie", "", "set poc cookie,-cookie rememberMe=login")
-	flag.Int64Var(&WebTimeout, "wt", 10, "Set web timeout")
+	flag.Int64Var(&WebTimeout, "wt", 9, "Set web timeout")
 	flag.BoolVar(&DnsLog, "dns", false, "using dnslog poc")
 	flag.IntVar(&PocNum, "num", 30, "poc rate")
 	flag.StringVar(&SC, "sc", "", "ms17 shellcode,as -sc add")
@@ -93,6 +93,7 @@ func Flag(Info *HostInfo) {
 	flag.StringVar(&AutoScanProtocols, "am", "tcp,icmp", "auto scan with which protocol, default: tcp,icmp")
 	flag.StringVar(&AutoScanPorts, "ap", "80", "which port need to scan with autoscan task, default: 80")
 	flag.StringVar(&AUtoScanIPLocation, "ai", "1,2,253,254", "which location of a cnet need to scan, default: 1,2,253,254")
+	flag.IntVar(&AutoScanTcpTimeout, "atime", 3, "port scan timeout with auto scan task")
 
 	flag.Parse()
 
@@ -104,8 +105,9 @@ func Flag(Info *HostInfo) {
 	}
 	PluginTaskRateCtrlCh = make(chan struct{}, WebScanThreadNum+BruteThread) //该通道用来控制插件类型的所有任务的整体并发数。其中，口令爆破任务、web探测任务还有自己额外的并发控制
 	BruteTaskRateCtrlCh = make(chan struct{}, BruteThread)
-	//PoolScan = gopool.NewGoPool(PortScanThreadNum*5 + WebScanThreadNum + BruteThread) // gopool.WithMinWorkers(PortScanThreadNum)
 	PoolScan = pond.New(PortScanThreadNum*5+WebScanThreadNum+BruteThread, PortScanThreadNum*25) // gopool.WithMinWorkers(PortScanThreadNum)
+	NmapTotalTimeout = time.Second * time.Duration(TcpTimeout*4)                                //4个探针时间
+	NmapSingleProbeTimeout = time.Second * time.Duration(TcpTimeout)
 
 	if IsScreenShot {
 		nowTimestamp := time.Now().Format("2006_01_02_15_04_05")
@@ -119,7 +121,7 @@ func Flag(Info *HostInfo) {
 	}
 
 	initDialer(time.Duration(TcpTimeout) * time.Second)
-	if (AutoScanBigCidr && strings.Contains(AutoScanProtocols, "icmp")) || NoPing != true {
+	if (AutoScanBigCidr && strings.Contains(AutoScanProtocols, "icmp")) || (NoPing != true && ScanWithStdInput == false) {
 		BloomFilter = bloom.NewWithEstimates(16780000, 0.01)
 	}
 }
