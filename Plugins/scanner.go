@@ -254,6 +254,16 @@ func Scan(inputInfo common.HostInfo) {
 	fmt.Println("start infoscan")
 	lib.Inithttp()
 
+	// 解析-hf输入的文件。ReadInputFile函数会提取纯ip、ip:port、url、域名（处理为http[s]://域名）
+	if common.HostFile != "" {
+		// 如果输入是文件类型
+		var ipListFromFile []string
+		ipListFromFile, _ = common.ReadInputFile(common.HostFile)
+
+		// 此处对纯ip目标做端口扫描
+		PortScanBatchTaskWithList(ipListFromFile, common.PortsInput)
+	}
+
 	// 0.A段/B段 智能存活扫描
 	if common.AutoScanBigCidr {
 		aliveIpCNets := AutoScanBigCidr(inputInfo) //存活的c段列表
@@ -292,7 +302,6 @@ func Scan(inputInfo common.HostInfo) {
 		}()
 		IcmpTaskWorkerByChan(targetInputCh, aliveIpChan, common.UsePingExe, isPrintIcmp) //阻塞
 		icmpWg.Wait()
-		fmt.Println(aliveIPList)
 		if len(aliveIPList) == 0 {
 			goto ScanIpContainPort
 		}
@@ -337,20 +346,11 @@ func Scan(inputInfo common.HostInfo) {
 		}
 
 		PortScanBatchTaskWithChan(targetInputCh)
-
-		// 解析-hf输入的文件，此处需要解析是因为ParseIPByChan里不再解析输入文件
-		if common.HostFile != "" {
-			// 输入是文件类型，从文件读取目标
-			var ipListFromFile []string
-			ipListFromFile, _ = common.ReadInputFile(common.HostFile)
-			PortScanBatchTaskWithList(ipListFromFile, common.PortsInput)
-		}
 	}
 
 ScanIpContainPort:
 	// 2.1 扫描 ip:port 输入，做端口协议识别和特定插件扫描
 	if len(common.HostAndPortList) != 0 {
-		fmt.Println("[debug] HostAndPortList len:", len(common.HostAndPortList))
 		ipAndPortChan := make(chan Addr, common.PortScanThreadNum)
 		go func() {
 			for _, target := range common.HostAndPortList {

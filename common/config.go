@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-var version = "1.8.3.a"
+var version = "1.8.3.b"
 var Userdict = map[string][]string{
 	"ftp":        {"ftp", "admin", "www", "web", "root", "db", "wwwroot", "data"},
 	"mysql":      {"root", "mysql"},
