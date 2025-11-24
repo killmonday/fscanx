@@ -71,7 +71,7 @@ func Flag(Info *HostInfo) {
 	flag.StringVar(&URL, "u", "", "url")
 	flag.StringVar(&UrlFile, "uf", "", "urlfile")
 	flag.StringVar(&Pocinfo.PocName, "pocname", "", "use the pocs these contain pocname, -pocname weblogic")
-	flag.StringVar(&Proxy, "proxy", "", "set poc proxy, -proxy http://127.0.0.1:8080")
+	flag.StringVar(&Proxy, "proxy", "", "set poc scan proxy,  -proxy http://127.0.0.1:8080")
 	flag.StringVar(&Socks5Proxy, "socks5", "", "set socks5 proxy, will be used in tcp connection, timeout setting will not work")
 	flag.StringVar(&Cookie, "cookie", "", "set poc cookie,-cookie rememberMe=login")
 	flag.Int64Var(&WebTimeout, "wt", 9, "Set web timeout")
@@ -109,6 +109,10 @@ func Flag(Info *HostInfo) {
 	PoolScan = pond.New(PortScanThreadNum*5+WebScanThreadNum+BruteThread, PortScanThreadNum*25) // gopool.WithMinWorkers(PortScanThreadNum)
 	NmapTotalTimeout = time.Second * time.Duration(TcpTimeout*4)                                //4个探针时间
 	NmapSingleProbeTimeout = time.Second * time.Duration(TcpTimeout)
+
+	if Socks5Proxy != "" {
+		AutoScanProtocols = "tcp"
+	}
 
 	if IsScreenShot {
 		nowTimestamp := time.Now().Format("2006_01_02_15_04_05")
