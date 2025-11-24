@@ -239,6 +239,7 @@ func AutoScanBigCidr(info common.HostInfo) []string {
 
 func Scan(inputInfo common.HostInfo) {
 	defer func() {
+		common.PoolScan.StopAndWait()
 		if r := recover(); r != nil {
 			//fmt.Printf("[ERROR] Goroutine Scan panic: %v\n", r)
 			//debug.PrintStack()
@@ -324,11 +325,10 @@ func Scan(inputInfo common.HostInfo) {
 
 		// 做nmap扫描/端口存活/poc扫描。PortScanBatchTask里具体做哪一种扫描取决于 -nmap、-poc选项是否设置
 		PortScanBatchTaskWithList(aliveIPList, common.PortsInput)
+		common.LogWG.Wait()
 		if common.Scantype == "portscan" {
-			common.LogWG.Wait()
 			return
 		}
-
 	} else {
 		// 1.2 跳过icmp扫描，直接做端口探测和协议识别
 		//finalResChan := make(chan *PortScanRes, common.PortScanThreadNum)
@@ -364,7 +364,7 @@ ScanIpContainPort:
 			close(ipAndPortChan)
 		}()
 		PortScanTaskWithStd(ipAndPortChan)
-		common.PoolScan.StopAndWait()
+		common.LogWG.Wait()
 	}
 
 	gonmap.Clear()
