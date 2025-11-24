@@ -530,7 +530,6 @@ func deduplicateFileContent(filename string) error {
 
 // 从输入文件-hf中按行读取目标
 func ReadInputFile(filename string) ([]string, error) {
-	fmt.Println("解析文件！！")
 	// 对输入文件的内容去重，覆写输入文件
 	if err := deduplicateFileContent(filename); err != nil {
 		return []string{}, err
@@ -558,6 +557,8 @@ func ReadInputFile(filename string) ([]string, error) {
 					host := urlS.Host
 					if index := strings.Index(host, ":"); index != -1 {
 						host = host[:index]
+					}
+					if Reg_domain.MatchString(host) {
 						addrs, err := LookupHost(host)
 						if err != nil {
 						} else {
@@ -568,6 +569,8 @@ func ReadInputFile(filename string) ([]string, error) {
 								}
 							}
 						}
+					} else {
+						content = append(content, ParseIPList(host+"/24")...)
 					}
 				}
 			} else if text := strings.Split(line, ":"); len(text) == 2 {
