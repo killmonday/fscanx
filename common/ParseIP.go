@@ -563,7 +563,8 @@ func ReadInputFile(filename string) ([]string, error) {
 						} else {
 							for _, addr := range addrs {
 								if RegIP.MatchString(addr) {
-									content = append(content, addr)
+									// 只提取第一个ipv4地址，作为为c段
+									content = append(content, ParseIPList(addr+"/24")...)
 								}
 							}
 						}
@@ -591,7 +592,7 @@ func ReadInputFile(filename string) ([]string, error) {
 					} else {
 						for _, addr := range addrs {
 							if RegIP.MatchString(addr) {
-								content = append(content, addr)
+								content = append(content, ParseIPList(addr+"/24")...)
 							}
 						}
 					}
@@ -623,7 +624,7 @@ func ReadInputFile(filename string) ([]string, error) {
 		}
 	}
 	// 返回 纯ip列表。其他的如url保存到全局Url，ip:port保存到全局的HostAndPortList
-	return content, nil
+	return RemoveDuplicate(content), nil
 }
 
 // 去重
