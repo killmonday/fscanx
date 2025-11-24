@@ -162,7 +162,7 @@ func parseIP(ip string) []string {
 func parseSingleIPWithChan(hostStr string, returnCh chan<- string, ipOnly bool) {
 	switch {
 	case hostStr == "192":
-		parseSingleIPWithChan("192.168.0.0/8", returnCh, ipOnly)
+		parseSingleIPWithChan("192.168.0.0/16", returnCh, ipOnly)
 		return
 	case hostStr == "172":
 		parseSingleIPWithChan("172.16.0.0/12", returnCh, ipOnly)
