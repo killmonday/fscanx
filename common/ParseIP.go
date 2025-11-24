@@ -2,16 +2,19 @@ package common
 
 import (
 	"bufio"
+	"context"
 	"errors"
 	"fmt"
 	"github.com/bits-and-blooms/bloom/v3"
 	"math/rand"
 	"net"
+	"net/url"
 	"os"
 	"regexp"
 	"sort"
 	"strconv"
 	"strings"
+	"time"
 )
 
 var Reg_domain = regexp.MustCompile(`^[a-zA-Z0-9-]+(\.[a-zA-Z0-9-]+)*\.[a-zA-Z]{2,}$`)
@@ -120,6 +123,17 @@ func ParseIPListByChan(targetsInput string, returnCh chan<- string, ipOnly bool)
 	}
 }
 
+func LookupHost(domain string) ([]string, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+	defer cancel()
+	ips, err := net.DefaultResolver.LookupHost(ctx, domain)
+	if err != nil {
+		return nil, err
+	}
+	return ips, nil
+}
+
+// 目前仅-hf使用
 func parseIP(ip string) []string {
 	switch {
 	case ip == "192":
@@ -128,22 +142,23 @@ func parseIP(ip string) []string {
 		return parseIP("172.16.0.0/12")
 	case ip == "10":
 		return parseIP("10.0.0.0/8")
-	//// 扫描/8时,只扫网关和随机IP,避免扫描过多IP
-	//case strings.HasSuffix(ip, "/8"):
-	//	return ParseIpAWithGuess(ip)
 	//解析 /24 /16 /8 /xxx 等
 	case strings.Contains(ip, "/"):
 		return parseCidr2Range(ip)
 	//可能是域名,用lookup获取ip
 	case Reg_domain.MatchString(ip):
-		addrs, err := net.LookupHost(ip)
-		if err != nil {
-			return nil
-		}
-		for _, addr := range addrs {
-			if RegIP.MatchString(addr) {
-				return []string{addr}
+		if IsParseDomain {
+			addrs, err := LookupHost(ip)
+			if err != nil {
+				return nil
 			}
+			for _, addr := range addrs {
+				//只返回第一个ipv4地址
+				if RegIP.MatchString(addr) {
+					return []string{addr}
+				}
+			}
+			return nil
 		}
 		return nil
 	//192.168.1.1-192.168.1.100 或 192.168.111.1-255
@@ -159,6 +174,7 @@ func parseIP(ip string) []string {
 	}
 }
 
+// 针对-h
 func parseSingleIPWithChan(hostStr string, returnCh chan<- string, ipOnly bool) {
 	switch {
 	case hostStr == "192":
@@ -170,17 +186,13 @@ func parseSingleIPWithChan(hostStr string, returnCh chan<- string, ipOnly bool) 
 	case hostStr == "10":
 		parseSingleIPWithChan("10.0.0.0/8", returnCh, ipOnly)
 		return
-	//// 扫描/8时,只扫网关和随机IP,避免扫描过多IP
-	//case strings.HasSuffix(hostStr, "/8"):
-	//	ParseIpAWithGuessByChan(hostStr, returnCh)
-	//	return
 	//解析 /24 /16 /8 /xxx 等
 	case strings.Contains(hostStr, "/"):
 		parseCidr2RangeByChan(hostStr, returnCh, ipOnly)
 		return
-	//可能是域名,用lookup获取ip
+	//纯域名,先用lookup获取ip，返回ip或ip:port
 	case Reg_domain.MatchString(hostStr):
-		addrs, err := net.LookupHost(hostStr)
+		addrs, err := LookupHost(hostStr)
 		if err != nil {
 			return
 		}
@@ -518,6 +530,7 @@ func deduplicateFileContent(filename string) error {
 
 // 从输入文件-hf中按行读取目标
 func ReadInputFile(filename string) ([]string, error) {
+	fmt.Println("解析文件！！")
 	// 对输入文件的内容去重，覆写输入文件
 	if err := deduplicateFileContent(filename); err != nil {
 		return []string{}, err
@@ -536,7 +549,26 @@ func ReadInputFile(filename string) ([]string, error) {
 		if line != "" {
 			if strings.HasPrefix(line, "http") {
 				// 支持url输入
+				urlS, err := url.Parse(line)
+				if err != nil {
+					continue
+				}
 				Urls = append(Urls, line)
+				if IsParseDomain {
+					host := urlS.Host
+					if index := strings.Index(host, ":"); index != -1 {
+						host = host[:index]
+						addrs, err := LookupHost(host)
+						if err != nil {
+						} else {
+							for _, addr := range addrs {
+								if RegIP.MatchString(addr) {
+									content = append(content, addr)
+								}
+							}
+						}
+					}
+				}
 			} else if text := strings.Split(line, ":"); len(text) == 2 {
 				// ip:port 或 ipcidr:port 或 ip,ipcidr:port
 				// 处理为 ip:port 存储到 common.HostAndPortList
@@ -549,13 +581,22 @@ func ReadInputFile(filename string) ([]string, error) {
 				for _, host := range hosts {
 					HostAndPortList = append(HostAndPortList, fmt.Sprintf("%s:%s", host, port))
 				}
-			} else if strings.HasPrefix(line, "http") {
-				// 支持url输入
-				Urls = append(Urls, line)
 			} else if Reg_domain.MatchString(line) {
-				// 输入的是纯域名，只探测443、80端口
+				// 支持纯域名输入，只探测443、80端口
 				Urls = append(Urls, "http://"+line)
 				Urls = append(Urls, "https://"+line)
+				if IsParseDomain {
+					addrs, err := LookupHost(line)
+					if err != nil {
+					} else {
+						for _, addr := range addrs {
+							if RegIP.MatchString(addr) {
+								content = append(content, addr)
+							}
+						}
+					}
+				}
+
 			} else {
 				matchesMasscanRunning := RegMasscanRunningText.FindAllStringSubmatch(line, -1)
 				if len(matchesMasscanRunning) >= 1 {
