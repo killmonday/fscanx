@@ -1,7 +1,6 @@
 package main
 
 import (
-	"net/http"
 	"time"
 
 	"github.com/killmonday/fscanx/Plugins"
@@ -11,9 +10,9 @@ import (
 )
 
 func main() {
-	go func() {
-		http.ListenAndServe("localhost:6060", nil)
-	}()
+	//go func() {
+	//	http.ListenAndServe("localhost:6060", nil)
+	//}()
 
 	//go func() {
 	//	time.Sleep(time.Second * 5)
