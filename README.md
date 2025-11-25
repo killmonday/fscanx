@@ -8,7 +8,7 @@
 
 既然已经发现了问题，只好努力改正，毕竟我们这些臭穷鬼，哪里舍得买4核4G的服务器，只能用1G内存的垃圾VPS，如果程序Out of memory被kill掉，会很头疼，只好压榨一下程序。后续我还想要单独开一个分支改成通过websocket/http接收扫描任务，再推送扫描结果或写入数据库，从而能被其他的测绘系统调用，不再需要开启进程来调用本程序。
 
-这里给出本程序的定位：**内外兼修、轻车重炮**。可以理解为象棋盘中的“炮”和“车”，**高架炮**需要炮台，而这个炮台就是**“代理”**，一炮打到目标内网。“车”就是横行直入，可以投递到目标内网的机器运行。为什么轻车而重炮？因为“代理”这颗棋子随时可以舍弃甚至牺牲，维护一个代理或隧道工具的免杀也比较容易，代价较低，而fscanx这枚炮是比较重的，代价较高。当然你也可以把它当作“车”来用，直接深入腹地能提供更快的侦察信息（icmp扫描）。本人比较习惯把命令控制、代理通道、侦察这几个活动隔离开来，防止牵一发动全身，一杀全挂。基于这种惯性，通常我会把它当炮使，而fscanx专门优化了socks代理下的端口探测、协议爆破、poc扫描等，支持通过代理探测tcp/udp协议。既能对公网资产进行信息收集（例如把收集到的目标ip/ip段/ip:port/域名/url整理一个txt直接用-hf探测），也能测绘内网资产，这是内外兼修。
+这里给出本程序的定位：**内外兼修、轻车重炮**。可以理解为象棋盘中的“炮”和“车”，**高架炮**需要炮台，而这个炮台就是**代理**，一炮打到目标内网。“车”就是横行直入，可以投递到目标内网的机器运行。为什么轻车而重炮？因为“代理”这颗棋子随时可以舍弃甚至牺牲，维护一个代理或隧道工具的免杀也比较容易，代价较低，而fscanx这枚炮是比较重的，代价较高。当然你也可以把它当作“车”来用，直接深入腹地能提供更快的侦察信息（icmp扫描）。本人比较习惯把命令控制、代理通道、侦察这几个活动隔离开来，防止牵一发动全身，一杀全挂。基于这种惯性，通常我会把它当炮使，而fscanx专门优化了socks代理下的端口探测、协议爆破、poc扫描等，支持通过代理探测tcp/udp协议。既能对公网资产进行信息收集（例如把收集到的目标ip/ip段/ip:port/域名/url整理一个txt直接用-hf探测），也能测绘内网资产，这是内外兼修。
 
 
 
@@ -54,7 +54,7 @@
 
 ## 2.内存优化
 
-这里改动比较大，主要有tcp的dialer配置、http的keepalive设置、gonmap库指纹优化（仅保留http、https、ssl、Kerberos、smb、rdp、snmp、socks5、http-proxy、mssql、tomcat、memcache、redis、ftp、ssh、ldap、imap、smtp、pop3、oracle、mongodb、mysql等等协议的探针和指纹）、web指纹库改用https://github.com/chainreactors/fingers、扫描逻辑优化（能够使用生产/消费的流式传输的地方都替换为通道流式传输了，比如ip地址生成、ip:port生成、icmp扫描衔接端口扫描的地方）、icmp扫描使用布隆过滤器优化内存占用（主要是过滤icmp监听的杂包）、正则表达式预编译、网络io读写buff（http只读取前192KB报文）、sync.Pool防止频繁的对象内存分配等等措施。
+这里改动比较大，主要有tcp的dialer配置、http的keepalive设置、gonmap库指纹优化（仅保留http、https、ssl、Kerberos、smb、rdp、snmp、socks5、http-proxy、mssql、tomcat、memcache、redis、ftp、ssh、ldap、imap、smtp、pop3、oracle、mongodb、mysql等等协议的探针和指纹）、web指纹库改用 https://github.com/chainreactors/fingers 、扫描逻辑优化（能够使用生产/消费的流式传输的地方都替换为通道流式传输了，比如ip地址生成、ip:port生成、icmp扫描衔接端口扫描的地方）、icmp扫描使用布隆过滤器优化内存占用（主要是过滤icmp监听的杂包）、正则表达式预编译、网络io读写buff（http只读取前192KB报文）、sync.Pool防止频繁的对象内存分配等等措施。
 
 目前对于内存占用，有两种典型的场景，我们分别来测试。
 
@@ -106,7 +106,9 @@ fscanx -h 192 -np -t 1000  -nmap           #开启nmap协议识别功能，内�
 
 （2）web指纹方面
 
-替换为https://github.com/chainreactors/fingers的web指纹识别引擎和指纹库。如需添加新的指纹，你需要先解压\mylib\finger\resources目录下的fingers_http.json.gz、goby.json.gz，然后编辑json文件去添加指纹，编辑完后使用`gzip -c fingers_http.json > fingers_http.json.gz`这样的命令来重新并替换原先的指纹压缩包文件，重新go build程序就可以了。指纹编写参考 https://wiki.chainreactors.red/libs/fingers/sdk/#%E5%8A%A8%E6%80%81%E6%B3%A8%E5%86%8C 。目前fscanx中只加载fingers、goby这两个指纹引擎，需要的可以自行修改。对了，goby有很多垃圾指纹导致误报，我修改了一部分已经不那么严重，当然还会有，以后遇到了会继续修改。
+替换为 https://github.com/chainreactors/fingers 的web指纹识别引擎和指纹库。如需添加新的指纹，你需要先解压\mylib\finger\resources目录下的fingers_http.json.gz、goby.json.gz，然后编辑json文件去添加指纹，编辑完后使用`gzip -c fingers_http.json > fingers_http.json.gz`这样的命令来重新并替换原先的指纹压缩包文件，重新go build程序就可以了。
+指纹编写参考 https://wiki.chainreactors.red/libs/fingers/sdk/#%E5%8A%A8%E6%80%81%E6%B3%A8%E5%86%8C 。
+目前fscanx中只加载fingers、goby这两个指纹引擎，需要的可以自行修改。对了，goby有很多垃圾指纹导致误报，我修改了一部分已经不那么严重，当然还会有，以后遇到了会继续修改。
 
 我们看看新指纹库的识别效果，还是不错的，重点资产还会标记出来：
 
@@ -127,7 +129,7 @@ fscanx -h 192 -np -t 1000  -nmap           #开启nmap协议识别功能，内�
 - cidr，会结合-p 选项的所有端口进行ip段+端口扫描
 - cidir:port，由于输入中指定了端口，将会忽略-p选项，直接对ip段+指定端口做扫描
 - url，首先会参与url扫描，其次会提取域名（解析为ip），或本身url中就是ip的，将ip变为c段，然后结合-p选项做整个c段的端口扫描
-- 纯域名，首先解析为http://域名、https://域名，添加到url扫描，然后解析该域名为ip，转为c段，然后结合-p选项做整个c段的端口扫描
+- 纯域名，首先解析为 http://域名 、https://域名 ，添加到url扫描 ，然后解析该域名为ip，转为c段，然后结合-p选项做整个c段的端口扫描
 
 这里有一个**新参数 -pd** 来控制是否要将url、纯域名所提取出的C段添加到端口扫描任务，如果设置了-pd就会提取。如果你仅仅想要扫描大量的纯url做web探测，就不需要开启-pd，因为这将对url或域名的对应ip的c段做扫描，可能并不是你想要的。另外，此处解析域名并没有做并发处理，所以不适合超大量的域名，不过一般情况下，一个目标大概率也没有多少个子域名，几十个就不错了，所以问题不大。
 
