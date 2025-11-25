@@ -183,7 +183,9 @@ fscanx  -h  192.168.0.0/16  -auto -nmap -t 1000 -np
 
 **（2）对一个新目标的公网资产做信息收集**，整理ip、ip段、子域名、url到一个txt，使用-hf统一探测，并将url、域名解析到的ip所在c段一并扫描
 
-fscanx   -hf  target.txt   -pd   -nmap  -np 
+fscanx   -hf  target.txt   **-pd**   -nmap  -np 
+
+注：-pd 表示将url、域名中的ip或解析出的ip所在c段添加到端口扫描
 
 **（3）对批量url做web扫描**。可通过-tn参数控制web扫描的并发数量，该参数默认值是60
 
