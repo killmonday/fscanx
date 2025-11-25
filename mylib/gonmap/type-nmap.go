@@ -38,7 +38,6 @@ func (n *Nmap) ScanTimeout(ip string, port int, timeout time.Duration, single_pr
 	var resChan = make(chan bool, 1)
 
 	defer func() {
-		fmt.Println("scan结束！")
 		if r := recover(); r != nil {
 			//fmt.Println("[debug] ScanTimeout err: %v", r)
 		}
