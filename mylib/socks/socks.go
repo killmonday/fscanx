@@ -235,6 +235,7 @@ func (d *Dialer) Dial(network, address string) (net.Conn, error) {
 	}
 	var err error
 	var c net.Conn
+
 	if d.ProxyDial != nil {
 		c, err = d.ProxyDial(context.Background(), d.proxyNetwork, d.proxyAddress)
 	} else {
@@ -244,8 +245,8 @@ func (d *Dialer) Dial(network, address string) (net.Conn, error) {
 		proxy, dst, _ := d.pathAddrs(address)
 		return nil, &net.OpError{Op: d.cmd.String(), Net: network, Source: proxy, Addr: dst, Err: err}
 	}
-	if network == "tcp" {
-		if _, err := d.DialWithConn(context.Background(), c, network, address); err != nil {
+	if network == "tcp4" || network == "tcp" {
+		if _, err = d.DialWithConn(context.Background(), c, network, address); err != nil {
 			c.Close()
 			return nil, err
 		}

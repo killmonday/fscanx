@@ -7,11 +7,19 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 )
 
 var GDialer = &net.Dialer{Timeout: 5 * time.Second, KeepAlive: 1 * time.Second}
 var defaultTcpDuration time.Duration
+var isValidSocks5 bool = true
+var bufPool = sync.Pool{
+	New: func() any {
+		return make([]byte, 2)
+	},
+}
+var httpProbe = []byte("GET / HTTP/1.0\r\n\r\n")
 
 func initDialer(timeout time.Duration) {
 	local_ip := "0.0.0.0"
@@ -27,7 +35,17 @@ func initDialer(timeout time.Duration) {
 	}
 	GDialer.Timeout = timeout
 	GDialer.LocalAddr = local_addr
-	defaultTcpDuration = time.Duration(TcpTimeout)
+	defaultTcpDuration = time.Duration(TcpTimeout) * time.Second
+
+	//test socks5
+	if Socks5Proxy != "" {
+		invalidAddr := "255.255.255.255:65531"
+		conn, _ := GetConn("tcp4", invalidAddr, defaultTcpDuration)
+		if conn != nil {
+			isValidSocks5 = false
+			defer conn.Close()
+		}
+	}
 }
 
 func GetConn(network, address string, timeout time.Duration) (net.Conn, error) {
@@ -106,12 +124,43 @@ func WrapperTCP(network, address string, dia *net.Dialer) (net.Conn, error) {
 		}
 		conn, err = dailer.Dial(network, address)
 		if err != nil {
-			// fmt.Println(err)
+			//fmt.Println(err)
 			if conn != nil {
 				conn.Close()
 			}
 			return nil, err
 		}
+		if isValidSocks5 == false {
+			conn.SetDeadline(time.Now().Add(dia.Timeout))
+			//发送http请求来测试目标主机+端口是否有响应，在这种socks5代理下，socks5 server并不是最终与目标直接建立连接的机器，没有按照标准socks5 rfc进行响应，无法通过conn来判断目标端口是否开放
+			_, err = conn.Write(httpProbe)
+			if err != nil {
+				if conn != nil {
+					conn.Close()
+				}
+				return nil, err
+			}
+			buf := bufPool.Get().([]byte)
+			defer bufPool.Put(buf)
+			//尝试读取
+			_, err = conn.Read(buf)
+			if err != nil {
+				if conn != nil {
+					conn.Close()
+				}
+				return nil, err
+			}
+			//目标端口真的开放。重新建立一个新连接并返回
+			conn.Close()
+			conn, err = dailer.Dial(network, address)
+			if err != nil {
+				if conn != nil {
+					conn.Close()
+				}
+				return nil, err
+			}
+		}
+
 	}
 
 	if err := conn.SetWriteDeadline(time.Now().Add(dia.Timeout)); err != nil {
