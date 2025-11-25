@@ -189,7 +189,7 @@ fscanx   -hf  target.txt   -pd   -nmap  -np
 
 fscanx   -hf  url.txt   -tn  200
 
-（4）配合masscan极速扫描。在-std模式下，将忽略-tn（web扫描并发数），由-t参数（端口扫描并发数）控制所有并发数，保持简单
+**（4）配合masscan极速扫描**。在-std模式下，将忽略-tn（web扫描并发数），由-t参数（端口扫描并发数）控制所有并发数，保持简单
 
 masscan   --rate 200  -p  80,443  192.168.0.0/16  |  fscanx  -std  -nmap -t 200
 
