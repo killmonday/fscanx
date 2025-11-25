@@ -404,8 +404,10 @@ func DoPortScan(ip string, port int, wg *sync.WaitGroup) {
 		case gonmap.Closed:
 			//fmt.Println("port ", port, "close")
 		case gonmap.Open:
-			isOpen = true
-			protocol = "tcp"
+			if common.IsValidSocks5 == true {
+				isOpen = true
+				protocol = "tcp"
+			}
 		case gonmap.NotMatched:
 			isOpen = true
 			protocol = "tcp"
@@ -513,7 +515,7 @@ func PortProbeSingleOnStd(addr *Addr) {
 	res.Host = host
 	res.Ports = strconv.Itoa(port)
 	var nmapResp *gonmap.Response
-	var protocol string
+	var protocol = "tcp"
 
 	if common.UseNmap {
 		nmap := gonmap.New()
@@ -523,9 +525,11 @@ func PortProbeSingleOnStd(addr *Addr) {
 		case gonmap.Closed:
 			return
 		case gonmap.Open:
+			if common.IsValidSocks5 == true {
+				return
+			}
 		case gonmap.NotMatched:
 		case gonmap.Matched:
-			//fmt.Println("[debug] get cert info:", response.FingerPrint.Info)
 			if response != nil {
 				protocol = response.FingerPrint.Service
 			}
@@ -535,6 +539,7 @@ func PortProbeSingleOnStd(addr *Addr) {
 		// 未开启-nmap选项，这里直接做端口存活探测，仅仅尝试tcp连接
 		conn, err := common.GetConn("tcp4", fmt.Sprintf("%s:%v", host, port), time.Duration(common.TcpTimeout)*time.Second)
 		if conn != nil {
+			defer conn.Close()
 			// 设置套接字延迟关闭选项，当调用 conn.Close() 时，立即关闭连接，不等待任何未发送或未确认的数据
 			if _, ok := conn.(*net.TCPConn); ok {
 				err = conn.(*net.TCPConn).SetLinger(0)
@@ -542,7 +547,6 @@ func PortProbeSingleOnStd(addr *Addr) {
 					//fmt.Println("set socket delay close fail:", err)
 				}
 			}
-			defer conn.Close()
 		}
 		if err != nil {
 			return

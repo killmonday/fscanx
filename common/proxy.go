@@ -13,7 +13,7 @@ import (
 
 var GDialer = &net.Dialer{Timeout: 5 * time.Second, KeepAlive: 1 * time.Second}
 var defaultTcpDuration time.Duration
-var isValidSocks5 bool = true
+var IsValidSocks5 bool = true
 var bufPool = sync.Pool{
 	New: func() any {
 		return make([]byte, 2)
@@ -42,7 +42,7 @@ func initDialer(timeout time.Duration) {
 		invalidAddr := "255.255.255.255:65531"
 		conn, _ := GetConn("tcp4", invalidAddr, defaultTcpDuration)
 		if conn != nil {
-			isValidSocks5 = false
+			IsValidSocks5 = false
 			defer conn.Close()
 		}
 	}
@@ -130,7 +130,9 @@ func WrapperTCP(network, address string, dia *net.Dialer) (net.Conn, error) {
 			}
 			return nil, err
 		}
-		if isValidSocks5 == false {
+		// 如果是不标准的socks5服务，并且没有使用gonmap探测，那么这里会发送http探针，并尝试读取，从而判断目标端口是否真的开放。
+		// 如果是有效的socks5服务，则不需要这一步。如果使用了gonmap探测，也不需要这一步，从NotMatch响应/Open响应+IsValidSocks5可以判断是不是真的开放，NotMatch表示有响应内容只是不匹配任何指纹
+		if IsValidSocks5 == false && UseNmap == false {
 			conn.SetDeadline(time.Now().Add(dia.Timeout))
 			//发送http请求来测试目标主机+端口是否有响应，在这种socks5代理下，socks5 server并不是最终与目标直接建立连接的机器，没有按照标准socks5 rfc进行响应，无法通过conn来判断目标端口是否开放
 			_, err = conn.Write(httpProbe)

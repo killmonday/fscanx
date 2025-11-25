@@ -48,6 +48,7 @@ var PluginListByProto = map[string]interface{}{
 	"mongodb":    MongodbScan,
 	"http":       WebScanController,
 	"https":      WebScanController,
+	"tcp":        WebScanController,
 }
 
 func ReadBytes(conn net.Conn) (result []byte, err error) {

@@ -38,6 +38,7 @@ func (n *Nmap) ScanTimeout(ip string, port int, timeout time.Duration, single_pr
 	var resChan = make(chan bool, 1)
 
 	defer func() {
+		fmt.Println("scan结束！")
 		if r := recover(); r != nil {
 			//fmt.Println("[debug] ScanTimeout err: %v", r)
 		}
@@ -51,25 +52,19 @@ func (n *Nmap) ScanTimeout(ip string, port int, timeout time.Duration, single_pr
 				//debug.PrintStack()
 			}
 		}()
-		status, response = n.Scan(ip, port)
+		scanRes := make(chan struct{}, 1)
+		go func() {
+			status, response = n.Scan(ip, port)
+			scanRes <- struct{}{}
+		}()
 
-		resChan <- true
+		select {
+		case <-ctx.Done():
+			return
+		case <-scanRes:
+			resChan <- true
+		}
 	})
-
-	//go func() {
-	//	defer func() {
-	//		if r := recover(); r != nil {
-	//			//debug.PrintStack()
-	//			//if fmt.Sprint(r) != "send on closed channel" {
-	//			//	panic(r)
-	//			//}
-	//			//fmt.Println("nmap scan err:", ip, port)
-	//		}
-	//	}()
-	//	status, response = n.Scan(ip, port)
-	//
-	//	resChan <- true
-	//}()
 
 	select {
 	case <-ctx.Done():
@@ -161,6 +156,7 @@ func (n *Nmap) getResponseByHTTPS(host string, port int, timeout time.Duration) 
 func (n *Nmap) getResponseByProbes(host string, port int, timeout time.Duration, probes ...string) (status Status, response *Response) {
 	//var responseNotMatch *Response
 	status = Closed
+	hasNotMatchOnetime := false
 	var currentStatu Status
 	var currentRes *Response
 	for index, requestName := range probes {
@@ -184,9 +180,17 @@ func (n *Nmap) getResponseByProbes(host string, port int, timeout time.Duration,
 			response = currentRes
 			break
 		} else if currentStatu != Closed {
+			if currentStatu == NotMatched {
+				hasNotMatchOnetime = true
+			}
 			status = currentStatu
 			response = currentRes
 		}
+	}
+	//到达这里的，都不是Matched
+	//如果曾经有一次探测是响应了内容，但没有匹配上指纹的，将最终返回状态设置为NotMatch。
+	if hasNotMatchOnetime {
+		status = NotMatched
 	}
 	//fmt.Println("返回：", status, response)
 	return status, response
