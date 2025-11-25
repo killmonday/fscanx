@@ -131,8 +131,10 @@ func WrapperTCP(network, address string, dia *net.Dialer) (net.Conn, error) {
 			return nil, err
 		}
 		// 如果是不标准的socks5服务，并且没有使用gonmap探测，那么这里会发送http探针，并尝试读取，从而判断目标端口是否真的开放。
-		// 如果是有效的socks5服务，则不需要这一步。如果使用了gonmap探测，也不需要这一步，从NotMatch响应/Open响应+IsValidSocks5可以判断是不是真的开放，NotMatch表示有响应内容只是不匹配任何指纹
-		if IsValidSocks5 == false && UseNmap == false {
+		// 如果是有效的socks5服务，则跳过这一步。如果使用了gonmap探测但，也不需要这一步，从NotMatch响应/Open响应+IsValidSocks5可以判断是不是真的开放，NotMatch表示有响应内容只是不匹配任何指纹
+		if (IsValidSocks5 == false && UseNmap == false) || (IsValidSocks5 == false && UseNmap == true && NmapInitOK == false) {
+			//第一个条件(IsValidSocks5 == false && UseNmap == false) 表示在socks5非标准且gonmap未启用时，此时探测端口开放需要通过socks5通信发送http探针验证端口存活
+			//第二个条件(IsValidSocks5 == false && UseNmap == true && NmapInitOK == false) 表示在socks5非标准，虽然启用gonmap但是gonmap库还没有初始化时，也需要发送http探针验证，此时其实是大网段智能探测时用到，只有此时gonmap是未初始化
 			conn.SetDeadline(time.Now().Add(dia.Timeout))
 			//发送http请求来测试目标主机+端口是否有响应，在这种socks5代理下，socks5 server并不是最终与目标直接建立连接的机器，没有按照标准socks5 rfc进行响应，无法通过conn来判断目标端口是否开放
 			_, err = conn.Write(httpProbe)

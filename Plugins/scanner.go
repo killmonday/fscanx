@@ -145,6 +145,7 @@ func AutoScanBigCidr(info common.HostInfo) []string {
 	common.LogSuccess("[*] Auto pre scan init, target: %s", info.Host)
 	probePortList := strings.Split(common.AutoScanPorts, ",")
 	swg := sizedwaitgroup.New(common.PortScanThreadNum) //端口扫描的并发控制
+	timeout := time.Duration(common.AutoScanTcpTimeout) * time.Second
 	var ipNeedProbe []string
 
 	if info.Host == "192" {
@@ -179,7 +180,6 @@ func AutoScanBigCidr(info common.HostInfo) []string {
 		return nil
 	}
 	if doTcp {
-		timeout := time.Duration(common.AutoScanTcpTimeout) * time.Second
 		for _, ip := range ipNeedProbe {
 			// 依次扫描指定端口
 			for _, port := range probePortList {
@@ -227,7 +227,7 @@ func AutoScanBigCidr(info common.HostInfo) []string {
 		}
 		swg.Wait()
 	}
-	if doIcmp {
+	if doIcmp && common.Socks5Proxy == "" {
 		IcmpTaskWorker(ipNeedProbe, common.UsePingExe)
 		common.LogSuccess("[*] icmp/tcp check done.\n\n")
 	}

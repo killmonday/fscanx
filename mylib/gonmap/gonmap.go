@@ -2,6 +2,7 @@ package gonmap
 
 import (
 	"fmt"
+	"github.com/killmonday/fscanx/common"
 	"log"
 	"os"
 	"regexp"
@@ -32,6 +33,7 @@ func init() {
 func Clear() {
 	if nmap != nil {
 		nmap = nil
+		common.NmapInitOK = false
 	}
 }
 
@@ -219,6 +221,7 @@ func optimizeNMAPProbes() {
 // 配置类
 func SetFilter(filter int) {
 	initWithFilter(filter)
+	common.NmapInitOK = true
 }
 
 func SetLogger(v Logger) {

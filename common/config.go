@@ -171,6 +171,7 @@ var AlivePortsMap sync.Map
 var PoolScan *pond.WorkerPool
 var NmapTotalTimeout time.Duration
 var NmapSingleProbeTimeout time.Duration
+var NmapInitOK bool
 
 // Discovered open port 8000/tcp on 222.213.125.131
 var RegMasscanRunningText = regexp.MustCompile(`^Discovered.*port\s+(\d{1,5}).*on\s+(\d{1,3}(?:\.\d{1,3}){3}).*$`) // masscan运行时的输出格式
