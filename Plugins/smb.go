@@ -13,7 +13,7 @@ import (
 
 func SmbScan(info *common.HostInfo) (tmperr error) {
 	if common.DoBrute == false {
-		conn, err := common.GetConn("tcp", info.Host+":"+info.Ports, time.Duration(common.TcpTimeout*2)*time.Second)
+		conn, err := common.GetConn("tcp", info.Host+":"+info.Ports, common.NmapSingleProbeTimeout)
 		if err != nil {
 			return
 		}
@@ -84,7 +84,7 @@ func SmbScan(info *common.HostInfo) (tmperr error) {
 		return nil
 	}
 
-	//
+	//口令爆破
 	starttime := time.Now().Unix()
 	for _, user := range common.Userdict["smb"] {
 		for _, pass := range common.Passwords {
