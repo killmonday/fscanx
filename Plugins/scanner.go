@@ -260,9 +260,13 @@ func Scan(inputInfo common.HostInfo) {
 		// 如果输入是文件类型
 		var ipListFromFile []string
 		ipListFromFile, _ = common.ReadInputFile(common.HostFile)
-
+		if common.NmapInitOK == false && common.UseNmap {
+			gonmap.SetFilter(9)
+		}
 		// 此处对纯ip目标做端口扫描
 		PortScanBatchTaskWithList(ipListFromFile, common.PortsInput)
+		common.LogWG.Wait()
+		fmt.Println("结束！Q！")
 	}
 
 	// 0.A段/B段 智能存活扫描
@@ -319,7 +323,7 @@ func Scan(inputInfo common.HostInfo) {
 		}
 		runtime.GC()
 
-		if common.UseNmap {
+		if common.UseNmap && common.NmapInitOK == false {
 			gonmap.SetFilter(9)
 		}
 
@@ -335,7 +339,7 @@ func Scan(inputInfo common.HostInfo) {
 		//portscanWg := sync.WaitGroup{}
 		common.LogSuccess("[*] 端口扫描")
 
-		if common.UseNmap {
+		if common.NmapInitOK == false && common.UseNmap {
 			gonmap.SetFilter(9)
 		}
 
