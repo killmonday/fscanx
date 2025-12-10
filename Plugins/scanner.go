@@ -266,7 +266,6 @@ func Scan(inputInfo common.HostInfo) {
 		// 此处对纯ip目标做端口扫描
 		PortScanBatchTaskWithList(ipListFromFile, common.PortsInput)
 		common.LogWG.Wait()
-		fmt.Println("结束！Q！")
 	}
 
 	// 0.A段/B段 智能存活扫描
