@@ -103,7 +103,7 @@ func (n *Nmap) Scan(ip string, port int) (status Status, response *Response) {
 	firstProbe := probeNames[0]
 	status, response = n.getRealResponse(ip, port, n.single_tz_timeout, firstProbe)
 
-	//fmt.Println("[debug] [Scan()] 第一探针 探测结束，get resp ok , status：", status, "response:", response.FingerPrint)
+	//fmt.Println("[debug] [Scan()] 第一探针 探测结束，get resp ok , status：", status, "response:", response, "\n")
 	if status == Closed || status == Matched {
 		return status, response
 	}
