@@ -67,8 +67,20 @@ func (n *Nmap) ScanTimeout(ip string, port int, timeout time.Duration, single_pr
 
 	select {
 	case <-ctx.Done():
+		// 此处是达到了总体探测超时时间，由于之前的逻辑没有设计和回传中间探测的端口开放状态，所以这里重新探测一次tcp端口开放，未来有时间可以去掉这一步，把中间状态回传，就不用浪费一次tcp等待时间
+		netloc := fmt.Sprintf("%s:%d", ip, port)
+		conn, _ := common.GetConn("tcp", netloc, single_probe_timeout)
+		if conn != nil {
+			defer conn.Close()
+			return Open, nil
+		}
 		return Closed, nil
 	case <-resChan:
+		if status == Open && common.IsValidSocks5 == false {
+			// Open状态表示目标端口没有响应任何数据
+			// 如果socks5代理非标准，首先说明①已经使用和配置了socks5代理；②走到此处说明使用了gonmap探测，基于第1点，gonmap在有限的前n个探针发送后依旧没有数据响应，可以认为是端口关闭，这是因为没办法尝试所有探针看是否有响应，并且这里获取到的tcp连接是与socks5服务器的，而非目标端口，所以又无法判断目标端口是否开放，因此如果直接判断为端口开放是武断的，故而判断为关闭，这是这种情况下必然损失的一些精度
+			return Closed, nil
+		}
 		return status, response
 	}
 }
@@ -91,7 +103,7 @@ func (n *Nmap) Scan(ip string, port int) (status Status, response *Response) {
 	firstProbe := probeNames[0]
 	status, response = n.getRealResponse(ip, port, n.single_tz_timeout, firstProbe)
 
-	//fmt.Println("[debug] [Scan] 第一探针 探测结束，get resp ok , status：", status, "response:", response)
+	//fmt.Println("[debug] [Scan()] 第一探针 探测结束，get resp ok , status：", status, "response:", response.FingerPrint)
 	if status == Closed || status == Matched {
 		return status, response
 	}
@@ -210,7 +222,7 @@ func (n *Nmap) getResponse(host string, port int, tls bool, timeout time.Duratio
 	}
 	text, tls, isOpen := p.scan(host, port, tls, timeout)
 
-	//fmt.Println("p.scan=", text, tls, isOpen)
+	//fmt.Println("p.scan return text len:", len(text), "|| tls:", tls, "|| open:", isOpen)
 	if isOpen == false {
 		return Closed, nil
 	}

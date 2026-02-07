@@ -98,6 +98,7 @@ type Addr struct {
 //}
 
 func PortScanBatchTaskWithList(hostslist []string, ports string) {
+	//fmt.Println("\n[debug] call PortScanBatchTaskWithList")
 	workers := common.PortScanThreadNum
 	Addrs := make(chan Addr, common.PortScanThreadNum)
 	var wg sync.WaitGroup
@@ -140,6 +141,7 @@ func PortScanBatchTaskWithList(hostslist []string, ports string) {
 			}()
 			for addr := range Addrs {
 				// 单个目标扫描
+				//fmt.Println("[debug] PortScanBatchTaskWithList: get alive ", addr)
 				DoPortScan(addr.ip, addr.port, &wg)
 				wg.Done()
 			}
@@ -205,6 +207,7 @@ func PortScanBatchTaskWithList(hostslist []string, ports string) {
 //}
 
 func PortScanBatchTaskWithChan(ipWithPortChan chan string) {
+	//fmt.Println("\n[debug] call PortScanBatchTaskWithChan\n")
 	workers := common.PortScanThreadNum
 	var wg sync.WaitGroup //记录addrCh和returnCh的使用
 
@@ -222,7 +225,9 @@ func PortScanBatchTaskWithChan(ipWithPortChan chan string) {
 				// 单个目标扫描
 				hostSlice := strings.Split(ipAndPort, ":")
 				p, _ := strconv.Atoi(hostSlice[1])
+				//fmt.Println("[debug] PortScanBatchTaskWithChan: get alive ", hostSlice)
 				DoPortScan(hostSlice[0], p, &wg) //阻塞调用端口扫描。仅插件扫描部分为异步，依赖wg来同步
+
 			}
 		}()
 	}
@@ -231,10 +236,12 @@ func PortScanBatchTaskWithChan(ipWithPortChan chan string) {
 }
 
 func PortScanTaskWithStd(targetInput chan Addr) {
+	//fmt.Println("\n[debug] call PortScanTaskWithStd")
 	for i := 0; i < common.PortScanThreadNum; i++ {
 		// gopool开启n个工作协程
 		common.PoolScan.Submit(func() {
 			for addr := range targetInput {
+				//fmt.Println("\n[debug] PortScanTaskWithStd, get alive:", addr)
 				if strings.HasPrefix(addr.ip, "http") && addr.port == -1 {
 					// url扫描
 					WebScanSingle(&addr) //同步调用
@@ -400,15 +407,16 @@ func DoPortScan(ip string, port int, wg *sync.WaitGroup) {
 	if common.UseNmap {
 		nmap := gonmap.New()
 		status, response := nmap.ScanTimeout(host, port, common.NmapTotalTimeout, common.NmapSingleProbeTimeout)
+		//fmt.Println("[debug] nmap.ScanTimeout 扫描返回:", status, "|| ", response, "\n\n")
+
 		switch status {
 		case gonmap.Closed:
 			//fmt.Println("port ", port, "close")
 		case gonmap.Open:
-			if common.IsValidSocks5 == true {
-				isOpen = true
-				protocol = "tcp"
-			}
+			isOpen = true
+			protocol = "tcp"
 		case gonmap.NotMatched:
+			// NotMatched表示端口有响应数据，但是无法识别是什么协议，此处认为必然是开放的端口
 			isOpen = true
 			protocol = "tcp"
 		case gonmap.Matched:
@@ -481,6 +489,7 @@ func DoPortScan(ip string, port int, wg *sync.WaitGroup) {
 
 }
 
+// 输入是单个地址
 func WebScanSingle(addr *Addr) {
 	defer func() {
 		if err := recover(); err != nil {
@@ -520,14 +529,12 @@ func PortProbeSingleOnStd(addr *Addr) {
 	if common.UseNmap {
 		nmap := gonmap.New()
 		status, response := nmap.ScanTimeout(host, port, common.NmapTotalTimeout, common.NmapSingleProbeTimeout)
+		//fmt.Println(status, response)
 		nmapResp = response
 		switch status {
 		case gonmap.Closed:
 			return
 		case gonmap.Open:
-			if common.IsValidSocks5 == true {
-				return
-			}
 		case gonmap.NotMatched:
 		case gonmap.Matched:
 			if response != nil {

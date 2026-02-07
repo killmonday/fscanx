@@ -402,11 +402,14 @@ func DoWebScan(targetInfo *common.HostInfo, scanType int, firstUrl string) (erro
 	// 创建Trace对象收集连接信息
 	trace := &httptrace.ClientTrace{
 		GotConn: func(connInfo httptrace.GotConnInfo) {
-			addr := connInfo.Conn.RemoteAddr().String()
-			if strings.HasPrefix(addr, "[") == false {
-				index := strings.Index(addr, ":")
-				serverIp = addr[:index]
+			if common.Socks5Proxy == "" {
+				addr := connInfo.Conn.RemoteAddr().String()
+				if strings.HasPrefix(addr, "[") == false {
+					index := strings.Index(addr, ":")
+					serverIp = addr[:index]
+				}
 			}
+
 		},
 	}
 	req = req.WithContext(httptrace.WithClientTrace(req.Context(), trace))

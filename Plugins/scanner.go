@@ -29,6 +29,7 @@ func init() {
 
 // 从标准输入读取目标并探测。目前支持输入为url、ip:port、masscan输出文件内容、masscan屏幕输出内容、纯域名
 func ScanFromStdin() {
+	//fmt.Println("[debug] call ScanFromStdin")
 	defer func() {
 		gonmap.Clear()
 		if r := recover(); r != nil {
@@ -46,9 +47,12 @@ func ScanFromStdin() {
 	fmt.Println("start infoscan")
 	lib.Inithttp()
 
+	add_task_done := sync.WaitGroup{}
 	go func() {
+		add_task_done.Add(1)
 		// 扫描工作协程。PortScanTaskWithStd中使用gopool启动n个工作协程
 		PortScanTaskWithStd(targetInputCh)
+		add_task_done.Done()
 	}()
 
 	// 从标准输入读取每一行。目前支持url、ip:port、masscan输出文件、masscan屏幕输出内容、纯域名
@@ -63,6 +67,10 @@ func ScanFromStdin() {
 			target = line
 			port = "-1"
 		} else {
+			//if common.RegIP.MatchString(line){
+			//
+			//}
+
 			// 支持 ip:port 输入
 			matches := common.RegIPAndPort.FindAllStringSubmatch(line, -1)
 			if len(matches) >= 1 && !strings.HasPrefix(line, "http") {
@@ -113,10 +121,12 @@ func ScanFromStdin() {
 			portInt = 80
 		}
 		common.LogWG.Add(1)
+		//fmt.Println("[debug] ScanFromStdin, put addr to ch:", target, portInt)
 		targetInputCh <- Addr{target, portInt}
 	}
 	common.LogWG.Wait()
 	close(targetInputCh)
+	add_task_done.Wait()
 	common.PoolScan.StopAndWait()
 
 	alivePortPrint := "[+] alive ports(%d): "
