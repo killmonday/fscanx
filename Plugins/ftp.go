@@ -106,9 +106,9 @@ func FtpConn(info *common.HostInfo, user string, pass string) (flag bool, err er
 						} else {
 							result += "\n   [->]" + dirs[i].Name
 						}
-						if i == 5 {
-							break
-						}
+						//if i == 5 {
+						//	break
+						//}
 					}
 				}
 			} else {
