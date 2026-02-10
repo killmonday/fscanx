@@ -87,7 +87,7 @@ func walkFtpDir(conn *ftp.ServerConn, path string, index int8) string {
 	for _, entry := range entries {
 		name := chinese.ToUTF8(entry.Name)
 		// 如果是目录，递归遍历
-		if entry.Type == ftp.EntryTypeFolder {
+		if entry.Type == ftp.EntryTypeFolder && name != "." && name != ".." {
 			fileListStr += "\n   [->] [dir] " + name
 			floders = append(floders, path+"/"+name)
 		} else {
