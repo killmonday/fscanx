@@ -3,6 +3,7 @@ package Plugins
 import (
 	"errors"
 	"fmt"
+	"github.com/killmonday/fscanx/mylib/stdio/chinese"
 	iofs "io/fs"
 	"strings"
 	"time"
@@ -71,7 +72,7 @@ func SmbScan(info *common.HostInfo) (tmperr error) {
 
 			err = iofs.WalkDir(fs.DirFS("."), ".", func(path string, d iofs.DirEntry, err error) error {
 				if path != "." {
-					res += fmt.Sprintf("\n   [->] [%s] %s", shareName, path)
+					res += fmt.Sprintf("\n   [->] [%s] %s", shareName, chinese.ToUTF8(path))
 					//common.LogSuccess(fmt.Sprintf("[+] smb %s explorer, sharename[%s]: %s\n", info.Host+":"+info.PortsInput, shareName, path))
 				}
 				return nil

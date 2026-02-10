@@ -3,6 +3,7 @@ package Plugins
 import (
 	"errors"
 	"fmt"
+	"github.com/killmonday/fscanx/mylib/stdio/chinese"
 	"golang.org/x/net/context"
 	"strings"
 	"time"
@@ -72,6 +73,34 @@ func FtpScan(info *common.HostInfo) (tmperr error) {
 	return tmperr
 }
 
+func walkFtpDir(conn *ftp.ServerConn, path string, index int8) string {
+	if index == 4 {
+		// 遍历所有子文件夹，但整体都都不超过3级，从根目录.算起，根目录为第1级
+		return ""
+	}
+	entries, err := conn.List(path)
+	fileListStr := "\n [->]Current dir: " + path
+	if err != nil {
+		return ""
+	}
+	floders := []string{}
+	for _, entry := range entries {
+		name := chinese.ToUTF8(entry.Name)
+		// 如果是目录，递归遍历
+		if entry.Type == ftp.EntryTypeFolder {
+			fileListStr += "\n   [->] [dir] " + name
+			floders = append(floders, path+"/"+name)
+		} else {
+			fileListStr += "\n   [->] " + name
+		}
+	}
+	for _, floder := range floders {
+		fileListStr += walkFtpDir(conn, floder, index+1)
+	}
+
+	return fileListStr
+}
+
 func FtpConn(info *common.HostInfo, user string, pass string) (flag bool, err error) {
 	flag = false
 	Host, Port, Username, Password := info.Host, info.Ports, user, pass
@@ -96,24 +125,7 @@ func FtpConn(info *common.HostInfo, user string, pass string) (flag bool, err er
 		if err == nil {
 			flag = true
 			result := fmt.Sprintf("[+] ftp:%v:%v:%v %v", Host, Port, Username, Password)
-			dirs, err2 := conn.List(".")
-			//defer conn.Logout()
-			if err2 == nil {
-				if len(dirs) > 0 {
-					for i := 0; i < len(dirs); i++ {
-						if len(dirs[i].Name) > 50 {
-							result += "\n   [->]" + dirs[i].Name[:50]
-						} else {
-							result += "\n   [->]" + dirs[i].Name
-						}
-						//if i == 5 {
-						//	break
-						//}
-					}
-				}
-			} else {
-				fmt.Println("[debug] ftp list dir err:", err2)
-			}
+			result += walkFtpDir(conn, ".", 1)
 			common.LogSuccess(result)
 			err = nil
 		}
