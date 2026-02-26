@@ -104,31 +104,38 @@ func walkFtpDir(conn *ftp.ServerConn, path string, index int8) string {
 func FtpConn(info *common.HostInfo, user string, pass string) (flag bool, err error) {
 	flag = false
 	Host, Port, Username, Password := info.Host, info.Ports, user, pass
-	conn, err := ftp.Dial(fmt.Sprintf("%v:%v", Host, Port), ftp.DialWithTimeout(time.Duration(common.TcpTimeout)*time.Second))
-	ctx, cancel := context.WithTimeout(context.Background(), time.Duration(common.TcpTimeout+3)*time.Second)
+	ctxWithConnect, cancel := context.WithTimeout(context.Background(), time.Duration(common.TcpTimeout+3)*time.Second)
+	ctxWithLogin, cancel2 := context.WithTimeout(context.Background(), time.Duration(common.TcpTimeout*2+3)*time.Second)
 	defer cancel()
+	defer cancel2()
 	res := make(chan error)
-	if err == nil {
-		go func(conn *ftp.ServerConn) {
-			err := conn.Login(user, pass)
-			res <- err
-		}(conn)
-		select {
-		case err = <-res:
-			break
-		case <-ctx.Done(): // 超时或被取消
-			//fmt.Println("操作取消:", ctx.Err()) // 输出 context.DeadlineExceeded
-			err = errors.New("ftp login timeout")
-		}
-
-		//err = conn.Login(Username, Password)
+	var conn *ftp.ServerConn
+	go func() {
+		_conn, err := ftp.Dial(fmt.Sprintf("%v:%v", Host, Port), ftp.DialWithTimeout(time.Duration(common.TcpTimeout)*time.Second))
 		if err == nil {
-			flag = true
-			result := fmt.Sprintf("[+] ftp:%v:%v:%v %v", Host, Port, Username, Password)
-			result += walkFtpDir(conn, ".", 1)
-			common.LogSuccess(result)
-			err = nil
+			err = _conn.Login(user, pass)
+			conn = _conn
 		}
+		res <- err
+	}()
+
+	select {
+	case err = <-res:
+		break
+	case <-ctxWithConnect.Done(): // 超时或被取消
+		//fmt.Println("操作取消:", ctxWithConnect.Err()) // 输出 context.DeadlineExceeded
+		err = errors.New("ftp connect timeout")
+	case <-ctxWithLogin.Done():
+		err = errors.New("ftp login timeout")
+	}
+
+	//err = conn.Login(Username, Password)
+	if err == nil {
+		flag = true
+		result := fmt.Sprintf("[+] ftp:%v:%v:%v %v", Host, Port, Username, Password)
+		result += walkFtpDir(conn, ".", 1)
+		common.LogSuccess(result)
+		err = nil
 	}
 	return flag, err
 }
