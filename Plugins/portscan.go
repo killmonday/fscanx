@@ -241,7 +241,6 @@ func PortScanTaskWithStd(targetInput chan Addr) {
 		// gopool开启n个工作协程
 		common.PoolScan.Submit(func() {
 			for addr := range targetInput {
-				//fmt.Println("\n[debug] PortScanTaskWithStd, get alive:", addr)
 				if strings.HasPrefix(addr.ip, "http") && addr.port == -1 {
 					// url扫描
 					WebScanSingle(&addr) //同步调用
@@ -406,6 +405,7 @@ func DoPortScan(ip string, port int, wg *sync.WaitGroup) {
 
 	if common.UseNmap {
 		nmap := gonmap.New()
+
 		status, response := nmap.ScanTimeout(host, port, common.NmapTotalTimeout, common.NmapSingleProbeTimeout)
 		//fmt.Println("[debug] nmap.ScanTimeout 扫描返回:", status, "|| ", response, "\n\n")
 
@@ -465,25 +465,24 @@ func DoPortScan(ip string, port int, wg *sync.WaitGroup) {
 			CallScanTaskByPortAsync(targetInfo.Ports, &targetInfo, wg) // smb信息探测
 			CallScanTaskByPortAsync("1000001", &targetInfo, wg)        // ms17010漏洞检测
 			CallScanTaskByPortAsync("1000002", &targetInfo, wg)        // smbghost漏洞检测
-		case portStr == "9000":
-			CallScanTaskByPortAsync(targetInfo.Ports, &targetInfo, wg) // fcgiscan漏洞检测
-		case IsContain(common.PortsHasPlugin, targetInfo.Ports):
-			// 如果要探测的目标端口在本程序中有专用的探测方法，则使用专用探测方法(如445、21、3389、135等)。否则走入default使用http尝试探测
-			CallScanTaskByPortAsync(targetInfo.Ports, &targetInfo, wg) // plugins scan
-			//fallthrough                                           // 继续执行下一个分支
 		default:
+			isProbeOK := false
 			// 如果使用了 -nmap选项， 则端口探测后会识别到协议，可根据协议来启用对应插件进行深度利用
 			if common.UseNmap {
 				if PluginListByProto[protocol] != nil {
 					CallScanTaskByProtocolAsync(protocol, &targetInfo, wg)
-				} else {
-					// 这里是插件未覆盖的协议，那么只进行http扫描识别就行
+					isProbeOK = true
+				}
+			}
+			// 当使用gonmap识别且没有识别出有效协议时、未使用gonmap但该端口击中默认触发插件的端口时
+			if isProbeOK == false {
+				if IsContain(common.PortsHasPlugin, targetInfo.Ports) { // 如果要探测的目标端口在本程序中有专用的探测方法，则使用专用探测方法(如445、21、3389、135等)。否则走入default使用http尝试探测
+					CallScanTaskByPortAsync(targetInfo.Ports, &targetInfo, wg) // plugins scan
+				} else { // 这里是插件未覆盖的协议，那么只进行http扫描识别就行
 					CallScanTaskByProtocolAsync("http", &targetInfo, wg) // plugins scan
 				}
-			} else {
-				// 这里是插件未覆盖的协议，那么只进行http扫描识别就行
-				CallScanTaskByProtocolAsync("http", &targetInfo, wg) // plugins scan
 			}
+
 		} // switch end
 	}
 
@@ -529,7 +528,7 @@ func PortProbeSingleOnStd(addr *Addr) {
 	if common.UseNmap {
 		nmap := gonmap.New()
 		status, response := nmap.ScanTimeout(host, port, common.NmapTotalTimeout, common.NmapSingleProbeTimeout)
-		//fmt.Println(status, response)
+		//fmt.Println(host, port, status, response, ", timeout:", common.NmapTotalTimeout, common.NmapSingleProbeTimeout)
 		nmapResp = response
 		switch status {
 		case gonmap.Closed:
@@ -584,18 +583,23 @@ func PortProbeSingleOnStd(addr *Addr) {
 		CallScanTaskWithStd(res.Ports, res) // smb信息探测
 		CallScanTaskWithStd("1000001", res) // ms17010漏洞检测
 		CallScanTaskWithStd("1000002", res) // smbghost漏洞检测
-	case res.Ports == "9000":
-		CallScanTaskWithStd(res.Ports, res)
-	case IsContain(common.PortsArrayHasPlugin, res.Ports):
-		CallScanTaskWithStd(res.Ports, res)
-		//fallthrough
 	default:
 		wg := sync.WaitGroup{}
+		isProbeOK := false
 		if PluginListByProto[protocol] != nil {
 			CallScanTaskByProtocolAsync(protocol, res, &wg)
+			isProbeOK = true
 		} else {
 			CallScanTaskByProtocolAsync("http", res, &wg)
 		}
+		if isProbeOK == false {
+			if IsContain(common.PortsHasPlugin, res.Ports) { // 如果要探测的目标端口在本程序中有专用的探测方法，则使用专用探测方法(如445、21、3389、135等)。否则走入default使用http尝试探测
+				CallScanTaskByPortAsync(res.Ports, res, &wg) // plugins scan
+			} else { // 这里是插件未覆盖的协议，那么只进行http扫描识别就行
+				CallScanTaskByProtocolAsync("http", res, &wg) // plugins scan
+			}
+		}
+
 		wg.Wait()
 	}
 
