@@ -124,7 +124,7 @@ func ParseIPListByChan(targetsInput string, returnCh chan<- string, ipOnly bool)
 }
 
 func LookupHost(domain string) ([]string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), 4*time.Second)
+	ctx, cancel := context.WithTimeout(context.Background(), 6*time.Second)
 	defer cancel()
 	ips, err := net.DefaultResolver.LookupHost(ctx, domain)
 	if err != nil {
@@ -599,6 +599,7 @@ func ReadInputFile(filename string) ([]string, error) {
 				if IsParseDomain {
 					addrs, err := LookupHost(line)
 					if err != nil {
+						fmt.Println(err.Error())
 					} else {
 						for _, addr := range addrs {
 							if RegIP.MatchString(addr) {
