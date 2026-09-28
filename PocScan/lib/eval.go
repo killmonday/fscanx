@@ -682,12 +682,18 @@ func ParseResponse(oResp *http.Response) (*Response, error) {
 	return &resp, nil
 }
 
+// maxPocBodyBytes 限制单个 POC 响应体读入内存的最大字节数（原始 body 与 gzip 解压后分别计算）。
+// 超限静默截断：ParseResponse 丢弃 getRespBody 的错误，截断语义与既有错误处理一致。
+const maxPocBodyBytes = 4 << 20 // 4MB
+
 func getRespBody(oResp *http.Response) (body []byte, err error) {
-	body, err = io.ReadAll(oResp.Body)
+	// 限长读取：防止超大响应被全量读入内存
+	body, err = io.ReadAll(io.LimitReader(oResp.Body, maxPocBodyBytes))
 	if strings.Contains(oResp.Header.Get("Content-Encoding"), "gzip") {
 		reader, err1 := gzip.NewReader(bytes.NewReader(body))
 		if err1 == nil {
-			body, err = io.ReadAll(reader)
+			// 解压后的内容同样限长，防止解压炸弹
+			body, err = io.ReadAll(io.LimitReader(reader, maxPocBodyBytes))
 		}
 	}
 	if err == io.EOF {

@@ -419,8 +419,8 @@ func DoWebScan(targetInfo *common.HostInfo, scanType int, firstUrl string) (erro
 	} else {
 		client = lib.Client
 	}
-	client.Timeout = time.Duration(common.WebTimeout) * time.Second
-	// 发送请求
+	// 发送请求。不再对共享 client 赋值 Timeout：InitHttpClient 已用同一 WebTimeout 完成初始化，
+	// 且并发写共享 client 的字段是数据竞争
 	resp, err := client.Do(req)
 	if resp != nil {
 		defer func() {
@@ -439,7 +439,7 @@ func DoWebScan(targetInfo *common.HostInfo, scanType int, firstUrl string) (erro
 		req.Close = true
 	}()
 
-	body, err := ReadRawWithSize(resp, 192*1024) // 最大获取前64KB页面
+	body, err := ReadRawWithSize(resp, 192*1024) // 最大获取前192KB页面（2026-09-23 决策：保持192KB不变）
 	if err != nil {
 		//fmt.Println("[-] read body err:", err)
 	}
@@ -682,8 +682,10 @@ func ReadRawWithSize(resp *http.Response, size int64) ([]byte, error) {
 	defer resp.Body.Close()
 	//var raw bytes.Buffer
 	raw := BufBuildPool.Get().(*bytes.Buffer)
-	defer raw.Reset()
+	// defer 按 LIFO 执行：必须先 Reset 再 Put，保证 buffer 清理完毕才归还池，
+	// 否则下一个取用者的写入会和本任务的 Reset 产生数据竞争
 	defer BufBuildPool.Put(raw)
+	defer raw.Reset()
 
 	// http响应状态行
 	//raw.WriteString(fmt.Sprintf("%s %s\r\n", resp.Proto, resp.Status))
@@ -722,7 +724,9 @@ func ReadRawWithSize(resp *http.Response, size int64) ([]byte, error) {
 	if errors.Is(err, io.EOF) || errors.Is(err, io.ErrUnexpectedEOF) {
 		err = nil // io.ErrUnexpectedEOF说明body 小于 192KB，如果是这个error则忽略
 	} else if err != nil {
-		return raw.Bytes(), err
+		// 池化 buffer 必须拷贝后再返回：raw 此时已归还 BufBuildPool，
+		// 直接返回 raw.Bytes() 会与后续任务共享底层数组，造成池污染数据竞争
+		return append([]byte(nil), raw.Bytes()...), err
 	}
 
 	raw.Write(buf[:n])
@@ -732,8 +736,8 @@ func ReadRawWithSize(resp *http.Response, size int64) ([]byte, error) {
 	//	_, _ = io.Copy(io.Discard, resp.Body)
 	//}
 
-	// 返回完整的响应数据
-	return raw.Bytes(), nil
+	// 返回完整的响应数据（必须拷贝，原因同上：池化 buffer 的底层内存不得逸出到池外）
+	return append([]byte(nil), raw.Bytes()...), nil
 }
 
 //new bufpool

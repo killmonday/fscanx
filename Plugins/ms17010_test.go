@@ -231,20 +231,15 @@ func TestMS17010Scan(t *testing.T) {
 	ip := "192.168.111.27"
 	// connecting to a host in LAN if reachable should be very quick
 	conn, err := common.GetConn("tcp", ip+":445", time.Second*12)
-	if err := conn.SetDeadline(time.Now().Add(time.Second * 12)); err != nil {
-		fmt.Println("Error setting conn write deadline:", err)
-		return
-	}
 	if err != nil {
 		fmt.Printf("failed to connect to %s\n", ip)
 		return
 	}
-	defer conn.Close()
-	if err != nil {
-		//fmt.Printf("failed to connect to %s\n", ip)
-		fmt.Printf("failed : %s\n", err)
+	if err := conn.SetDeadline(time.Now().Add(time.Second * 12)); err != nil {
+		fmt.Println("Error setting conn write deadline:", err)
 		return
 	}
+	defer conn.Close()
 	_, err = conn.Write(negotiateProtocolRequest)
 	if err != nil {
 		err = TmpWindows_version_probe(ip)

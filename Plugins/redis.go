@@ -307,7 +307,9 @@ func Readfile(filename string) (string, error) {
 
 func readreply(conn net.Conn) (string, error) {
 	conn.SetReadDeadline(time.Now().Add(time.Second))
-	bytes, err := io.ReadAll(conn)
+	// 16KB 限长：redis 命令回复均为短消息，1 秒读超时只限时间不限字节，此处补上字节上限。
+	// 超限截断后 len(bytes)>0 会将 err 置 nil，静默返回截断内容（与既有语义一致）。
+	bytes, err := io.ReadAll(io.LimitReader(conn, 16*1024))
 	if len(bytes) > 0 {
 		err = nil
 	}

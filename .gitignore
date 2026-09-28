@@ -1,3 +1,6 @@
+/*.txt
+.omc**
+.omc
 *.exe
 fscan_arm
 fscan64
